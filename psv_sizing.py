@@ -97,6 +97,14 @@ def calculate_api520_subcritical_orifice_area(
         'F2': float(F2)
     }
 
+def calculate_valve_capacity(orifice_area_mm2: float, P1_kPa_a: float, K_d: float = 0.85) -> float:
+    """
+    Calculates rated equivalent air capacity (m3/h) for a given effective orifice area (mm2),
+    relieving pressure P1 (kPa_a), and discharge coefficient Kd per API 520 / NFPA 59A.
+    """
+    kd_ratio = K_d / 0.85
+    return (orifice_area_mm2 / 148500.0) * 25380.0 * (P1_kPa_a / 117.003) * kd_ratio
+
 def evaluate_valve_matrix(
     q_a_per_valve_m3_h: float,
     P1_kPa_a: float,
@@ -117,8 +125,8 @@ def evaluate_valve_matrix(
     results = []
     for v in valves:
         area = v['orifice_area_mm2']
-        kd_ratio = v.get('discharge_coeff_kd', 0.85) / 0.85
-        capacity_m3_h = (area / 148500.0) * 25380.0 * (P1_kPa_a / 117.003) * kd_ratio
+        kd_val = v.get('discharge_coeff_kd', 0.85)
+        capacity_m3_h = calculate_valve_capacity(area, P1_kPa_a, K_d=kd_val)
         coverage_pct = (capacity_m3_h / q_a_per_valve_m3_h) * 100.0
         
         if coverage_pct >= 110.0:

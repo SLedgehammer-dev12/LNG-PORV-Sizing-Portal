@@ -29,7 +29,7 @@ class DummyStream(io.TextIOBase):
     def isatty(self):
         return False
     def fileno(self):
-        return -1
+        raise OSError(errno.EBADF, 'Bad file descriptor')
     @property
     def encoding(self):
         return "utf-8"

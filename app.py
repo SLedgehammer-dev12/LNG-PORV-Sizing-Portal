@@ -13,7 +13,7 @@ import logging
 
 from lng_thermo import calculate_costald_density, calculate_vapor_density, COMPONENT_DATA
 from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, EOS_COMPONENT_DATA
-from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix
+from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix, calculate_valve_capacity
 from psv_database import search_matching_valves
 from report_generator import generate_html_report
 
@@ -104,7 +104,7 @@ st.sidebar.header("⚙️ Girdi, EOS ve Birim Ayarları")
 
 eos_choice = st.sidebar.selectbox(
     "📊 Termodinamik Durum Denklemi (EOS)",
-    ["Peng-Robinson (PR 1976)", "Soave-Redlich-Kwong (SRK)", "İdeal Gaz / GERG-2008"],
+    ["Peng-Robinson (PR 1976)", "Soave-Redlich-Kwong (SRK)", "İdeal Gaz (Ideal Gas)"],
     index=0,
     help="VLE Flaş dengesi, Z sıkıştırılabilirlik faktörü ve dinamik Cp/Cv k_mix(T,P) hesabı için EOS modeli."
 )
@@ -112,7 +112,7 @@ eos_choice = st.sidebar.selectbox(
 eos_code = 'PR'
 if 'SRK' in eos_choice:
     eos_code = 'SRK'
-elif 'İdeal' in eos_choice or 'GERG' in eos_choice:
+elif 'İdeal' in eos_choice:
     eos_code = 'IDEAL'
 
 input_tab1, input_tab2, input_tab3 = st.sidebar.tabs(["Saha & Operasyon", "LNG Kompozisyon Kataloğu", "Flaş BOG Modu"])
@@ -187,6 +187,10 @@ with input_tab2:
         default=st.session_state['active_components'],
         format_func=lambda key: EOS_COMPONENT_DATA[key]['name']
     )
+    if not selected_comps:
+        st.error("❌ **Hata**: Kompozisyon hesabı için en az 1 adet gaz bileşeni seçilmelidir!")
+        st.stop()
+        
     st.session_state['active_components'] = selected_comps
     
     # Auto-normalize button
@@ -256,8 +260,9 @@ with input_tab3:
     st.subheader("5. Flaş BOG Debisi Giriş Modu")
     flash_mode = st.radio(
         "Flaş BOG Hesap Modu:",
-        ["Otomatik (%2.0 Flaş Oranı)", "Manuel Debi Girişi"],
-        index=0
+        ["EOS VLE Flaş Oranı (%V/F)", "Sabit Flaş Oranı (%)", "Manuel Debi Girişi"],
+        index=0,
+        help="VLE Flaş dengesi ile hesaplanan V/F buhar oranı (vle_res) veya manuel sabit oran/debi seçimi."
     )
     
     if flash_mode == "Manuel Debi Girişi":
@@ -268,12 +273,16 @@ with input_tab3:
         with col_wfu:
             w_flash_unit = st.selectbox("Flaş Debi Birimi", list(MASS_FLOW_UNITS.keys()), index=0)
         w_flash_manual_kg_h = convert_mass_flow_to_kg_h(w_flash_input, w_flash_unit)
-    else:
+        manual_flash_pct = 2.0
+    elif flash_mode == "Sabit Flaş Oranı (%)":
         flash_manual_mode = False
         w_flash_manual_kg_h = 94200.0
+        manual_flash_pct = st.number_input("Manuel Sabit Flaş Oranı (%)", value=2.0, step=0.1)
+    else: # EOS VLE Flaş Oranı (%V/F)
+        flash_manual_mode = False
+        w_flash_manual_kg_h = 94200.0
+        manual_flash_pct = None
         
-    flash_pct = st.number_input("Otomatik Mod Flaş Oranı (%)", value=2.0, step=0.1)
-    
     col_wbog, col_wbogu = st.columns([3, 2])
     with col_wbog:
         w_bog_input = st.number_input("Isı Girişi Tank BOG Debisi", value=1570.0, step=100.0)
@@ -294,13 +303,15 @@ try:
     k_factor = vle_res['k_mix']
     rho_v = vle_res['rho_v_kg_m3']
     M_vapor = vle_res['M_vapor_g_mol']
+    
+    effective_flash_pct = vle_res['flash_pct'] if manual_flash_pct is None else manual_flash_pct
 
     # Relieving mass flow rates
     loads = calculate_relieving_loads(
         q_fill_m3_h=Q_fill,
         rho_lng_kg_m3=rho_lng,
         rho_v_kg_m3=rho_v,
-        flash_pct=flash_pct,
+        flash_pct=effective_flash_pct,
         w_bog_kg_h=w_bog_kg_h,
         flash_manual_mode=flash_manual_mode,
         w_flash_manual_kg_h=w_flash_manual_kg_h
@@ -346,6 +357,9 @@ except Exception as e:
     logger.exception("Error in core calculation pipeline")
     st.stop()
 
+if Overpressure_pct == 0.0:
+    st.info("ℹ️ **Aşırı Basınç Bilgisi**: Overpressure **%0.0** seçilmiştir. Emniyet vanası set basıncında (Relieving Pressure = Set Pressure + Patm) tam açılma kapasitesiyle değerlendirilmektedir.")
+
 # --- MAIN DASHBOARD DISPLAY ---
 
 # Prominent Total Composition Validation Alert Box
@@ -372,61 +386,58 @@ with m_col1:
 with m_col2:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value" style="color:#a855f7;">{rho_v:.3f} kg/m³</div>
-        <div class="metric-label">Buhar Yoğunluğu (ρ_v @ {T_relief_input:.1f} {T_relief_unit})</div>
+        <div class="metric-value">{M_vapor:.2f} g/mol</div>
+        <div class="metric-label">Buhar Faz Mol Kütlesi (M_vapor)</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_col3:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value" style="color:#38bdf8;">{Z_factor:.4f}</div>
-        <div class="metric-label">Sıkıştırılabilirlik (Z_gas @ {eos_code})</div>
+        <div class="metric-value">{Z_factor:.4f}</div>
+        <div class="metric-label">Gaz Z Faktörü ({vle_res['eos_used']})</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_col4:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value" style="color:#fbbf24;">{k_factor:.3f}</div>
-        <div class="metric-label">Isı Kapasitesi Oranı k(T,P)</div>
+        <div class="metric-value">{k_factor:.3f}</div>
+        <div class="metric-label">Dinamik k = Cp/Cv ({T_relief_input:.1f} {T_relief_unit})</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_col5:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">{loads['w_total_kg_h']:,.0f} kg/h</div>
-        <div class="metric-label">Kütlesel Tahliye Debisi (W)</div>
+        <div class="metric-value">%{vle_res['flash_pct']:.2f}</div>
+        <div class="metric-label">VLE Flaş Buhar Oranı (V/F)</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_col6:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value" style="color:#fb7185;">{subcrit['A_o_mm2']:,.0f} mm²</div>
-        <div class="metric-label">Gerekli Orifis Alanı (A_o)</div>
+        <div class="metric-value">{loads['w_total_kg_h']:,.0f} kg/h</div>
+        <div class="metric-label">Toplam Tahliye Debisi (W_total)</div>
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# Main Section 1: Standard Valve Size Evaluation Matrix
-st.header("1. Vana Katalog Modellere Göre Orifis ve Kapasite Matrisi")
-st.caption(f"EOS Model: **{eos_choice}** | Set: {P_set:.0f} mbar_g, Overpressure: %{Overpressure_pct:.0f}, P_atm_min: {P_atm_min:.2f} mbar_a (P1 = {P1_mbar_a:.2f} mbar_a) | Z_gas = {Z_factor:.4f}, k(T,P) = {k_factor:.3f}")
+# Main Section 1: Dynamic Orifice Matrix
+st.header("1. Standart Orifis Alanı Karşılaştırma Matrisi")
+st.caption(f"Min. Sahadaki Atmosferik Basınç ({P_atm_min:.2f} mbar_a) ve Relieving Pressure ({P1_mbar_a:.2f} mbar_a) altında değerlendirme:")
 
 matrix_df = pd.DataFrame(matrix)
-if not matrix_df.empty:
-    matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
-    matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
+matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
+matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
 
-    st.dataframe(
-        matrix_df_display.style.format({
-            'Efektif Orifis Alanı (mm²)': '{:,.0f}',
-            'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
-            'Kapasite Oranı (%)': '%{:.1f}'
-        })
-    )
+st.dataframe(
+    matrix_df_display.style.format({
+        'Efektif Orifis Alanı (mm²)': '{:,.0f}',
+        'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
+        'Kapasite Oranı (%)': '%{:.1f}'
+    })
+)
 
 # Main Section 2: Commercial Manufacturer PSV Database Matching
 st.header("2. Entegre PSV Üretici Vana Kataloğu Eşleştirmesi")
@@ -487,12 +498,13 @@ with chart_col2:
     cov_16 = []
     cov_18 = []
     
+    # Dynamic rated capacity from database (16"x18" = 148,500 mm2, 18"x20" = 191,000 mm2)
+    cap16 = calculate_valve_capacity(148500.0, P1_kPa_a)
+    cap18 = calculate_valve_capacity(191000.0, P1_kPa_a)
+
     for q in q_range:
-        ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_lng, rho_v_kg_m3=rho_v, flash_pct=flash_pct, w_bog_kg_h=w_bog_kg_h)
+        ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_lng, rho_v_kg_m3=rho_v, flash_pct=effective_flash_pct, w_bog_kg_h=w_bog_kg_h)
         qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor) / N_working
-        
-        cap16 = 25380.0 * (P1_kPa_a / 117.003)
-        cap18 = 32650.0 * (P1_kPa_a / 117.003)
         
         cov_16.append((cap16 / qa) * 100.0)
         cov_18.append((cap18 / qa) * 100.0)

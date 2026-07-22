@@ -1,151 +1,85 @@
 """
-VLE & Multi-EOS Thermodynamic Engine (Peng-Robinson, SRK, GERG-2008 / Ideal Gas)
+VLE & Multi-EOS Thermodynamic Engine (Peng-Robinson, SRK, Ideal Gas)
 Calculates Real Gas Z-factor, Fugacity Coefficients, Rachford-Rice Two-Phase VLE Flash BOG,
-and Dynamic Temperature & Pressure Dependent Heat Capacity Ratio k_mix(T, P) = Cp(T,P) / Cv(T,P).
+Binary Interaction Parameters (k_ij), and Dynamic Heat Capacity Ratio k_mix(T, P) = Cp(T,P) / Cv(T,P).
 """
 
 import math
 import logging
+from lng_thermo import COMPONENT_DATA as EOS_COMPONENT_DATA
 
 logger = logging.getLogger(__name__)
 
-# Expanded 18-Component Thermodynamic Constants Database
-# Tc in K, Pc in bar, omega dimensionless, M in g/mol
-# Aly-Lee / Ideal Gas Cp coefficients: Cp_ideal(T) = A + B*T + C*T^2 + D*T^3 (J/(mol*K))
-EOS_COMPONENT_DATA = {
-    'CH4': {
-        'name': 'Methane (Metan - CH4)',
-        'M': 16.043, 'Tc': 190.56, 'Pc': 45.99, 'omega': 0.011, 'k_ideal_298': 1.31,
-        'cp_coeffs': [19.25, 0.05213, 1.197e-5, -1.132e-8]
-    },
-    'C2H6': {
-        'name': 'Ethane (Etan - C2H6)',
-        'M': 30.070, 'Tc': 305.32, 'Pc': 48.72, 'omega': 0.099, 'k_ideal_298': 1.19,
-        'cp_coeffs': [5.409, 0.1781, -6.938e-5, 8.713e-9]
-    },
-    'C3H8': {
-        'name': 'Propane (Propan - C3H8)',
-        'M': 44.097, 'Tc': 369.83, 'Pc': 42.48, 'omega': 0.152, 'k_ideal_298': 1.13,
-        'cp_coeffs': [-4.224, 0.3063, -1.586e-4, 3.215e-8]
-    },
-    'iC4H10': {
-        'name': 'iso-Butane (İzo-Bütan - i-C4H10)',
-        'M': 58.122, 'Tc': 407.85, 'Pc': 36.40, 'omega': 0.186, 'k_ideal_298': 1.10,
-        'cp_coeffs': [-7.913, 0.4029, -2.261e-4, 5.048e-8]
-    },
-    'nC4H10': {
-        'name': 'n-Butane (n-Bütan - n-C4H10)',
-        'M': 58.122, 'Tc': 425.12, 'Pc': 37.96, 'omega': 0.200, 'k_ideal_298': 1.09,
-        'cp_coeffs': [3.955, 0.3713, -1.834e-4, 3.500e-8]
-    },
-    'iC5H12': {
-        'name': 'iso-Pentane (İzo-Pentan - i-C5H12)',
-        'M': 72.150, 'Tc': 460.40, 'Pc': 33.80, 'omega': 0.227, 'k_ideal_298': 1.08,
-        'cp_coeffs': [-9.450, 0.4850, -2.610e-4, 5.420e-8]
-    },
-    'nC5H12': {
-        'name': 'n-Pentane (n-Pentan - n-C5H12)',
-        'M': 72.150, 'Tc': 469.70, 'Pc': 33.70, 'omega': 0.251, 'k_ideal_298': 1.08,
-        'cp_coeffs': [-3.626, 0.4873, -2.580e-4, 5.310e-8]
-    },
-    'C6plus': {
-        'name': 'Hexane+ (Hekzan+ - C6+)',
-        'M': 86.177, 'Tc': 507.60, 'Pc': 30.25, 'omega': 0.301, 'k_ideal_298': 1.06,
-        'cp_coeffs': [-4.413, 0.5820, -3.119e-4, 6.490e-8]
-    },
-    'N2': {
-        'name': 'Nitrogen (Azot - N2)',
-        'M': 28.013, 'Tc': 126.20, 'Pc': 33.90, 'omega': 0.037, 'k_ideal_298': 1.40,
-        'cp_coeffs': [31.15, -0.01357, 2.680e-5, -1.168e-8]
-    },
-    'CO2': {
-        'name': 'Carbon Dioxide (Karbondioksit - CO2)',
-        'M': 44.010, 'Tc': 304.13, 'Pc': 73.77, 'omega': 0.225, 'k_ideal_298': 1.28,
-        'cp_coeffs': [24.99, 0.05519, -3.369e-5, 7.948e-9]
-    },
-    'O2': {
-        'name': 'Oxygen (Oksijen - O2)',
-        'M': 31.999, 'Tc': 154.58, 'Pc': 50.43, 'omega': 0.022, 'k_ideal_298': 1.39,
-        'cp_coeffs': [29.10, -0.00877, 2.025e-5, -8.727e-9]
-    },
-    'H2': {
-        'name': 'Hydrogen (Hidrojen - H2)',
-        'M': 2.016, 'Tc': 33.19, 'Pc': 13.13, 'omega': -0.216, 'k_ideal_298': 1.41,
-        'cp_coeffs': [27.14, 0.00927, -1.380e-5, 7.645e-9]
-    },
-    'Ar': {
-        'name': 'Argon (Argon - Ar)',
-        'M': 39.948, 'Tc': 150.80, 'Pc': 48.70, 'omega': 0.001, 'k_ideal_298': 1.67,
-        'cp_coeffs': [20.786, 0.0, 0.0, 0.0]
-    },
-    'He': {
-        'name': 'Helium (Helyum - He)',
-        'M': 4.003, 'Tc': 5.19, 'Pc': 2.27, 'omega': -0.365, 'k_ideal_298': 1.67,
-        'cp_coeffs': [20.786, 0.0, 0.0, 0.0]
-    },
-    'H2S': {
-        'name': 'Hydrogen Sulfide (Hidrojen Sülfür - H2S)',
-        'M': 34.080, 'Tc': 373.53, 'Pc': 89.63, 'omega': 0.090, 'k_ideal_298': 1.32,
-        'cp_coeffs': [32.68, 0.0124, 1.93e-6, -2.10e-9]
-    },
-    'H2O': {
-        'name': 'Water Vapor (Su Buharı - H2O)',
-        'M': 18.015, 'Tc': 647.10, 'Pc': 220.64, 'omega': 0.344, 'k_ideal_298': 1.33,
-        'cp_coeffs': [32.24, 0.00192, 1.055e-5, -3.596e-9]
-    },
-    'CO': {
-        'name': 'Carbon Monoxide (Karbonmonoksit - CO)',
-        'M': 28.010, 'Tc': 132.86, 'Pc': 34.94, 'omega': 0.049, 'k_ideal_298': 1.40,
-        'cp_coeffs': [29.56, -0.00658, 2.013e-5, -1.223e-8]
-    },
-    'Air': {
-        'name': 'Air (Hava - Air)',
-        'M': 28.965, 'Tc': 132.53, 'Pc': 37.86, 'omega': 0.035, 'k_ideal_298': 1.40,
-        'cp_coeffs': [28.97, -0.00157, 1.708e-5, -8.773e-9]
-    }
-}
-
 R_GAS = 8.3144626 # J/(mol*K)
 
+# Binary Interaction Parameter Matrix k_ij for hydrocarbon/non-hydrocarbon mixtures
+BINARY_INTERACTION_K_IJ = {
+    ('CH4', 'N2'): 0.035, ('N2', 'CH4'): 0.035,
+    ('CH4', 'C2H6'): 0.005, ('C2H6', 'CH4'): 0.005,
+    ('CH4', 'C3H8'): 0.010, ('C3H8', 'CH4'): 0.010,
+    ('CH4', 'CO2'): 0.095, ('CO2', 'CH4'): 0.095,
+    ('N2', 'C2H6'): 0.060, ('C2H6', 'N2'): 0.060,
+    ('N2', 'C3H8'): 0.080, ('C3H8', 'N2'): 0.080,
+    ('CO2', 'C2H6'): 0.130, ('C2H6', 'CO2'): 0.130
+}
+
+def get_k_ij(comp_i: str, comp_j: str) -> float:
+    if comp_i == comp_j:
+        return 0.0
+    return BINARY_INTERACTION_K_IJ.get((comp_i, comp_j), 0.0)
+
 def calculate_cp_ideal_component(comp: str, temperature_k: float) -> float:
-    """ Calculates ideal gas Cp (J/(mol*K)) for a component at temperature_k. """
-    c_data = EOS_COMPONENT_DATA.get(comp, EOS_COMPONENT_DATA['CH4'])
-    a, b, c, d = c_data['cp_coeffs']
-    T = max(50.0, min(1000.0, temperature_k))
-    return a + b * T + c * (T**2) + d * (T**3)
+    """
+    Calculates component ideal gas isobaric heat capacity Cp_ideal(T) in J/(mol*K)
+    using Aly-Lee polynomial coefficients.
+    """
+    if temperature_k < 150.0:
+        logger.debug(f"Temperature {temperature_k:.2f} K < 150 K: Aly-Lee Cp polynomial extrapolation applied for {comp}.")
+        
+    data = EOS_COMPONENT_DATA.get(comp, EOS_COMPONENT_DATA['CH4'])
+    coeffs = data['cp_coeffs']
+    T = max(50.0, temperature_k)
+    
+    # Cp_ideal = A + B*T + C*T^2 + D*T^3
+    cp = coeffs[0] + coeffs[1] * T + coeffs[2] * (T**2) + coeffs[3] * (T**3)
+    return max(15.0, cp)
 
 def solve_cubic_z(A: float, B: float, eos: str = 'PR') -> tuple:
     """
-    Solves the cubic equation of state in compressibility factor Z:
-    PR: Z^3 - (1 - B) Z^2 + (A - 2B - 3B^2) Z - (AB - B^2 - B^3) = 0
-    SRK: Z^3 - Z^2 + (A - B - B^2) Z - A*B = 0
+    Solves the Cubic Equation of State for Z (Compressibility Factor).
+    PR 1976: Z^3 - (1-B)*Z^2 + (A - 2B - 3B^2)*Z - (AB - B^2 - B^3) = 0
+    SRK:     Z^3 - Z^2 + (A - B - B^2)*Z - AB = 0
+    
     Returns (Z_gas, Z_liquid)
     """
     if eos.upper() == 'SRK':
         a2 = -1.0
         a1 = A - B - (B**2)
         a0 = -A * B
-    else: # PR (1976)
+    else: # PR 1976
         a2 = -(1.0 - B)
         a1 = A - 2.0 * B - 3.0 * (B**2)
         a0 = -(A * B - (B**2) - (B**3))
 
+    # Solve Cubic polynomial via Cardan's analytical method
     p = a1 - (a2**2) / 3.0
-    q = (2.0 * (a2**3) / 27.0) - (a2 * a1 / 3.0) + a0
+    q = (2.0 * (a2**3)) / 27.0 - (a2 * a1) / 3.0 + a0
     discriminant = (q**2) / 4.0 + (p**3) / 27.0
 
     roots = []
     if discriminant < 0:
-        m = 2.0 * math.sqrt(-p / 3.0)
-        arg = -q / (2.0 * math.sqrt(- (p**3) / 27.0)) if p != 0 else 0.0
-        arg = max(-1.0, min(1.0, arg))
-        theta = math.acos(arg) / 3.0
+        # Three real roots
+        r = math.sqrt(- (p**3) / 27.0)
+        phi = math.acos(max(-1.0, min(1.0, -q / (2.0 * r))))
+        r_13 = math.pow(r, 1/3)
         
-        r1 = m * math.cos(theta) - a2 / 3.0
-        r2 = m * math.cos(theta + (2.0 * math.pi / 3.0)) - a2 / 3.0
-        r3 = m * math.cos(theta + (4.0 * math.pi / 3.0)) - a2 / 3.0
-        roots = sorted([r1, r2, r3])
+        y1 = 2.0 * r_13 * math.cos(phi / 3.0)
+        y2 = 2.0 * r_13 * math.cos((phi + 2.0 * math.pi) / 3.0)
+        y3 = 2.0 * r_13 * math.cos((phi + 4.0 * math.pi) / 3.0)
+        
+        roots = [y1 - a2 / 3.0, y2 - a2 / 3.0, y3 - a2 / 3.0]
     else:
+        # One real root
         u_arg = -q / 2.0 + math.sqrt(max(0.0, discriminant))
         v_arg = -q / 2.0 - math.sqrt(max(0.0, discriminant))
         u = math.pow(u_arg, 1/3) if u_arg >= 0 else -math.pow(abs(u_arg), 1/3)
@@ -161,6 +95,85 @@ def solve_cubic_z(A: float, B: float, eos: str = 'PR') -> tuple:
     Z_liquid = min(valid_roots)
     return Z_gas, Z_liquid
 
+def calculate_fugacity_coefficients(
+    composition_mol: dict,
+    temperature_k: float,
+    pressure_kPa_a: float,
+    eos: str = 'PR',
+    phase: str = 'gas'
+) -> dict:
+    """
+    Calculates analytical component fugacity coefficients phi_i(T, P, x/y)
+    for Peng-Robinson or SRK EOS.
+    """
+    total_pct = sum(composition_mol.values())
+    if total_pct <= 0:
+        total_pct = 100.0
+    x = {c: pct / total_pct for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
+    if not x:
+        x = {'CH4': 1.0}
+
+    P_Pa = pressure_kPa_a * 1000.0
+    T = max(30.0, temperature_k)
+    
+    a_i = {}
+    b_i = {}
+    for c in x:
+        data = EOS_COMPONENT_DATA[c]
+        Tc, Pc, w = data['Tc'], data['Pc'], data['omega']
+        Tr = T / Tc
+        if eos.upper() == 'SRK':
+            m = 0.480 + 1.574 * w - 0.176 * (w**2)
+            alpha = (1.0 + m * (1.0 - math.sqrt(Tr)))**2
+            a_i[c] = 0.42748 * ((R_GAS * Tc)**2) / (Pc * 1e5) * alpha
+            b_i[c] = 0.08664 * (R_GAS * Tc) / (Pc * 1e5)
+        else: # PR
+            m = 0.37464 + 1.54226 * w - 0.26992 * (w**2)
+            alpha = (1.0 + m * (1.0 - math.sqrt(Tr)))**2
+            a_i[c] = 0.45724 * ((R_GAS * Tc)**2) / (Pc * 1e5) * alpha
+            b_i[c] = 0.07780 * (R_GAS * Tc) / (Pc * 1e5)
+
+    a_mix = 0.0
+    b_mix = sum(x[c] * b_i[c] for c in x)
+    comp_list = list(x.keys())
+
+    bar_a_i = {c: 0.0 for c in comp_list}
+    for i in range(len(comp_list)):
+        c_i = comp_list[i]
+        for j in range(len(comp_list)):
+            c_j = comp_list[j]
+            k_ij = get_k_ij(c_i, c_j)
+            a_ij = math.sqrt(a_i[c_i] * a_i[c_j]) * (1.0 - k_ij)
+            a_mix += x[c_i] * x[c_j] * a_ij
+            bar_a_i[c_i] += x[c_j] * a_ij
+
+    A = (a_mix * P_Pa) / ((R_GAS * T)**2)
+    B = (b_mix * P_Pa) / (R_GAS * T)
+    
+    Z_gas, Z_liquid = solve_cubic_z(A, B, eos=eos)
+    Z = Z_gas if phase.lower() in ('gas', 'vapor') else Z_liquid
+    Z = max(B + 1e-4, Z)
+
+    phi = {}
+    for c in comp_list:
+        bi_bm = b_i[c] / b_mix if b_mix > 0 else 1.0
+        ai_am = (2.0 * bar_a_i[c]) / a_mix if a_mix > 0 else 1.0
+        
+        term1 = bi_bm * (Z - 1.0)
+        term2 = -math.log(Z - B)
+        
+        if eos.upper() == 'SRK':
+            term3 = -(A / B) * (ai_am - bi_bm) * math.log(1.0 + B / Z)
+        else: # PR
+            sqrt2 = math.sqrt(2.0)
+            log_arg = (Z + (1.0 + sqrt2) * B) / max(1e-6, Z + (1.0 - sqrt2) * B)
+            term3 = -(A / (2.0 * sqrt2 * B)) * (ai_am - bi_bm) * math.log(max(1e-6, log_arg))
+            
+        ln_phi = term1 + term2 + term3
+        phi[c] = math.exp(max(-50.0, min(50.0, ln_phi)))
+
+    return phi
+
 def calculate_eos_mixture_properties(
     composition_mol: dict,
     temperature_k: float,
@@ -169,7 +182,8 @@ def calculate_eos_mixture_properties(
 ) -> dict:
     """
     Calculates thermodynamic properties (Z_gas, Z_liquid, dynamic Cp/Cv ratio k_mix(T,P), density)
-    using Peng-Robinson (PR) or Soave-Redlich-Kwong (SRK) EOS.
+    using Peng-Robinson (PR), Soave-Redlich-Kwong (SRK), or Ideal Gas model.
+    Includes Binary Interaction Parameters (k_ij) and exact EOS Cp-Cv thermodynamic derivative.
     """
     total_pct = sum(composition_mol.values())
     if total_pct <= 0:
@@ -177,38 +191,59 @@ def calculate_eos_mixture_properties(
     x = {c: pct / total_pct for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
     if not x:
         x = {'CH4': 1.0}
-        
-    P_bar = pressure_kPa_a / 100.0
+
     P_Pa = pressure_kPa_a * 1000.0
     T = max(30.0, temperature_k)
-    
+    M_mix = sum(x[c] * EOS_COMPONENT_DATA[c]['M'] for c in x)
+    Cp_ideal = sum(x[c] * calculate_cp_ideal_component(c, T) for c in x)
+    Cv_ideal = Cp_ideal - R_GAS
+
+    if eos.upper() in ('IDEAL', 'GERG2008'):
+        Z_gas = 1.0
+        Z_liquid = 1.0
+        Cv_real = Cp_ideal - R_GAS
+        Cp_real = Cp_ideal
+        k_mix = max(1.05, min(1.67, Cp_real / Cv_real))
+        rho_v = (P_Pa * (M_mix / 1000.0)) / (R_GAS * T)
+        return {
+            'Z_gas': 1.0, 'Z_liquid': 1.0, 'k_mix': float(k_mix),
+            'Cp_ideal': float(Cp_ideal), 'Cp_real': float(Cp_real), 'Cv_real': float(Cv_real),
+            'M_mix': float(M_mix), 'rho_v_kg_m3': float(rho_v), 'A': 0.0, 'B': 0.0, 'eos_name': 'IDEAL'
+        }
+
     a_i = {}
     b_i = {}
     m_i = {}
+    da_dT_i = {}
+    d2a_dT2_i = {}
     
     for c in x:
         data = EOS_COMPONENT_DATA[c]
-        Tc = data['Tc']
-        Pc = data['Pc']
-        w = data['omega']
+        Tc, Pc, w = data['Tc'], data['Pc'], data['omega']
         Tr = T / Tc
         
         if eos.upper() == 'SRK':
             m = 0.480 + 1.574 * w - 0.176 * (w**2)
-            alpha = (1.0 + m * (1.0 - math.sqrt(Tr)))**2
-            a = 0.42748 * ((R_GAS * Tc)**2) / (Pc * 1e5) * alpha
-            b = 0.08664 * (R_GAS * Tc) / (Pc * 1e5)
+            a0 = 0.42748 * ((R_GAS * Tc)**2) / (Pc * 1e5)
+            b0 = 0.08664 * (R_GAS * Tc) / (Pc * 1e5)
         else: # PR 1976
             m = 0.37464 + 1.54226 * w - 0.26992 * (w**2)
-            alpha = (1.0 + m * (1.0 - math.sqrt(Tr)))**2
-            a = 0.45724 * ((R_GAS * Tc)**2) / (Pc * 1e5) * alpha
-            b = 0.07780 * (R_GAS * Tc) / (Pc * 1e5)
-            
-        a_i[c] = a
-        b_i[c] = b
+            a0 = 0.45724 * ((R_GAS * Tc)**2) / (Pc * 1e5)
+            b0 = 0.07780 * (R_GAS * Tc) / (Pc * 1e5)
+
+        alpha = (1.0 + m * (1.0 - math.sqrt(Tr)))**2
+        a_i[c] = a0 * alpha
+        b_i[c] = b0
         m_i[c] = m
         
+        # Exact alpha(T) first and second temperature derivatives
+        sqrt_alpha = math.sqrt(alpha)
+        da_dT_i[c] = -a0 * m * sqrt_alpha / math.sqrt(T * Tc)
+        d2a_dT2_i[c] = a0 * m * (1.0 + m) / (2.0 * T * math.sqrt(T * Tc))
+
     a_mix = 0.0
+    da_dT_mix = 0.0
+    d2a_dT2_mix = 0.0
     b_mix = sum(x[c] * b_i[c] for c in x)
     
     comp_list = list(x.keys())
@@ -216,56 +251,51 @@ def calculate_eos_mixture_properties(
         c_i = comp_list[i]
         for j in range(len(comp_list)):
             c_j = comp_list[j]
-            a_mix += x[c_i] * x[c_j] * math.sqrt(a_i[c_i] * a_i[c_j])
+            k_ij = get_k_ij(c_i, c_j)
+            a_ij = math.sqrt(a_i[c_i] * a_i[c_j]) * (1.0 - k_ij)
+            a_mix += x[c_i] * x[c_j] * a_ij
             
+            if a_i[c_i] > 0 and a_i[c_j] > 0:
+                da_ij = 0.5 * (da_dT_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + da_dT_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_i])) * (1.0 - k_ij)
+                da_dT_mix += x[c_i] * x[c_j] * da_ij
+                
+                d2a_ij = 0.5 * (d2a_dT2_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + d2a_dT2_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_i])) * (1.0 - k_ij)
+                d2a_dT2_mix += x[c_i] * x[c_j] * d2a_ij
+
     A = (a_mix * P_Pa) / ((R_GAS * T)**2)
     B = (b_mix * P_Pa) / (R_GAS * T)
     
     Z_gas, Z_liquid = solve_cubic_z(A, B, eos=eos)
     
-    M_mix = sum(x[c] * EOS_COMPONENT_DATA[c]['M'] for c in x)
-    
-    Cp_ideal = sum(x[c] * calculate_cp_ideal_component(c, T) for c in x)
-    Cv_ideal = Cp_ideal - R_GAS
-    
-    # Real Gas Residual Heat Capacity Correction Cv_res(T,P) from EOS second temperature derivative
-    d2a_dT2 = 0.0
-    for i in range(len(comp_list)):
-        c_i = comp_list[i]
-        Tc_i = EOS_COMPONENT_DATA[c_i]['Tc']
-        Pc_i = EOS_COMPONENT_DATA[c_i]['Pc']
-        m_i_val = m_i[c_i]
-        if eos.upper() == 'SRK':
-            a0_i = 0.42748 * ((R_GAS * Tc_i)**2) / (Pc_i * 1e5)
-        else:
-            a0_i = 0.45724 * ((R_GAS * Tc_i)**2) / (Pc_i * 1e5)
-
-        for j in range(len(comp_list)):
-            c_j = comp_list[j]
-            Tc_j = EOS_COMPONENT_DATA[c_j]['Tc']
-            Pc_j = EOS_COMPONENT_DATA[c_j]['Pc']
-            m_j_val = m_i[c_j]
-            if eos.upper() == 'SRK':
-                a0_j = 0.42748 * ((R_GAS * Tc_j)**2) / (Pc_j * 1e5)
-            else:
-                a0_j = 0.45724 * ((R_GAS * Tc_j)**2) / (Pc_j * 1e5)
-
-            d2a_ij = math.sqrt(a0_i * a0_j) * (1.0 / (4.0 * (T**1.5))) * (
-                (m_i_val * (1.0 + m_j_val) / math.sqrt(Tc_i)) +
-                (m_j_val * (1.0 + m_i_val) / math.sqrt(Tc_j))
-            )
-            d2a_dT2 += x[c_i] * x[c_j] * d2a_ij
-
+    # Real Gas Residual Cv_res(T,P) from EOS second derivative
     if eos.upper() == 'SRK':
-        Cv_res = (T * d2a_dT2 / b_mix) * math.log(1.0 + B / Z_gas) if Z_gas > B else 0.0
+        Cv_res = (T * d2a_dT2_mix / b_mix) * math.log(1.0 + B / Z_gas) if Z_gas > B else 0.0
     else: # PR
         sqrt2 = math.sqrt(2.0)
         log_term = math.log((Z_gas + (1.0 + sqrt2) * B) / max(1e-6, Z_gas + (1.0 - sqrt2) * B))
-        Cv_res = (T * d2a_dT2 / (2.0 * sqrt2 * b_mix)) * log_term if Z_gas > B else 0.0
+        Cv_res = (T * d2a_dT2_mix / (2.0 * sqrt2 * b_mix)) * log_term if Z_gas > B else 0.0
 
     Cv_real = max(R_GAS * 0.1, Cv_ideal + max(0.0, Cv_res))
-    Cp_real = Cv_real + R_GAS * Z_gas
+
+    # Exact Real Gas Cp - Cv Thermodynamic Derivative Difference
+    v = (Z_gas * R_GAS * T) / P_Pa
+    v_b = max(1e-6, v - b_mix)
     
+    if eos.upper() == 'SRK':
+        denom_v = v * (v + b_mix)
+        dP_dT_V = (R_GAS / v_b) - (da_dT_mix / max(1e-8, denom_v))
+        neg_dP_dV_T = (R_GAS * T / (v_b**2)) - (a_mix * (2.0 * v + b_mix) / max(1e-8, denom_v**2))
+    else: # PR 1976
+        denom_v = v**2 + 2.0 * b_mix * v - (b_mix**2)
+        dP_dT_V = (R_GAS / v_b) - (da_dT_mix / max(1e-8, denom_v))
+        neg_dP_dV_T = (R_GAS * T / (v_b**2)) - (2.0 * a_mix * (v + b_mix) / max(1e-8, denom_v**2))
+
+    if neg_dP_dV_T > 0:
+        Cp_minus_Cv = T * (dP_dT_V**2) / neg_dP_dV_T
+    else:
+        Cp_minus_Cv = R_GAS * Z_gas
+
+    Cp_real = max(Cv_real + R_GAS * 0.5, Cv_real + Cp_minus_Cv)
     k_mix = max(1.05, min(1.67, Cp_real / Cv_real))
     
     rho_v = (P_Pa * (M_mix / 1000.0)) / (Z_gas * R_GAS * T)
@@ -291,8 +321,8 @@ def calculate_two_phase_vle_flash(
     eos: str = 'PR'
 ) -> dict:
     """
-    Rachford-Rice Two-Phase VLE Flash Solver.
-    Calculates equilibrium BOG vapor fraction (V/F), vapor composition y_i, and liquid composition x_i.
+    Rachford-Rice Two-Phase VLE Flash Solver with EOS Fugacity Coupling (K_i = phi_i^L / phi_i^V).
+    Calculates equilibrium BOG vapor fraction (V/F), equilibrium vapor composition y_i, and liquid composition x_i.
     """
     total_pct = sum(composition_mol.values())
     if total_pct <= 0:
@@ -302,51 +332,80 @@ def calculate_two_phase_vle_flash(
         z = {'CH4': 1.0}
 
     P_bar = pressure_kPa_a / 100.0
-    T = temperature_k
+    T = max(30.0, temperature_k)
 
+    # 1. Initial Wilson K-values
     K = {}
     for c in z:
         data = EOS_COMPONENT_DATA[c]
-        P_ci = data['Pc']
-        T_ci = data['Tc']
-        w_i = data['omega']
+        P_ci, T_ci, w_i = data['Pc'], data['Tc'], data['omega']
         K[c] = (P_ci / P_bar) * math.exp(5.37 * (1.0 + w_i) * (1.0 - T_ci / T))
 
     def rachford_rice(v_frac):
         return sum((z[c] * (K[c] - 1.0)) / (1.0 + v_frac * (K[c] - 1.0)) for c in z)
 
-    v_min, v_max = 0.0, 1.0
-    f_min = rachford_rice(v_min)
-    f_max = rachford_rice(v_max)
+    def rachford_rice_deriv(v_frac):
+        return -sum((z[c] * ((K[c] - 1.0)**2)) / ((1.0 + v_frac * (K[c] - 1.0))**2) for c in z)
 
-    if f_min <= 0:
-        v_frac = 0.0
-    elif f_max >= 0:
-        v_frac = 1.0
-    else:
-        v_frac = 0.05
-        for _ in range(30):
-            v_mid = 0.5 * (v_min + v_max)
-            f_mid = rachford_rice(v_mid)
-            if abs(f_mid) < 1e-6:
-                v_frac = v_mid
-                break
-            if f_mid > 0:
-                v_min = v_mid
-            else:
-                v_max = v_mid
-            v_frac = v_mid
+    # 2. Outer Loop: EOS Fugacity Coupling Iteration
+    v_frac = 0.05
+    max_outer = 30 if eos.upper() in ('PR', 'SRK') else 1
+    
+    for outer_step in range(max_outer):
+        f_min = rachford_rice(0.0)
+        f_max = rachford_rice(1.0)
 
-    x_liq = {}
-    y_vap = {}
-    for c in z:
-        denom = 1.0 + v_frac * (K[c] - 1.0)
-        x_liq[c] = z[c] / denom
-        y_vap[c] = (z[c] * K[c]) / denom
+        if f_min <= 0:
+            v_frac = 0.0
+        elif f_max >= 0:
+            v_frac = 1.0
+        else:
+            # Fast Newton-Raphson Solver with Bisection Fallback
+            v_frac = max(0.01, min(0.99, v_frac))
+            for _ in range(25):
+                f_val = rachford_rice(v_frac)
+                if abs(f_val) < 1e-7:
+                    break
+                df_val = rachford_rice_deriv(v_frac)
+                if abs(df_val) > 1e-12:
+                    v_next = v_frac - f_val / df_val
+                    if 0.0 <= v_next <= 1.0:
+                        v_frac = v_next
+                    else:
+                        v_frac = 0.5 * v_frac + 0.25
+                else:
+                    break
 
-    sum_y = sum(y_vap.values())
-    if sum_y > 0:
+        # Calculate phase compositions x_i and y_i
+        x_liq = {}
+        y_vap = {}
+        for c in z:
+            denom = 1.0 + v_frac * (K[c] - 1.0)
+            x_liq[c] = max(1e-8, z[c] / denom)
+            y_vap[c] = max(1e-8, (z[c] * K[c]) / denom)
+
+        sum_x = sum(x_liq.values())
+        sum_y = sum(y_vap.values())
+        x_liq = {c: val / sum_x for c, val in x_liq.items()}
         y_vap = {c: val / sum_y for c, val in y_vap.items()}
+
+        if eos.upper() not in ('PR', 'SRK') or v_frac <= 0.0 or v_frac >= 1.0:
+            break
+
+        # Calculate EOS liquid and vapor fugacity coefficients
+        phi_L = calculate_fugacity_coefficients(x_liq, T, pressure_kPa_a, eos=eos, phase='liquid')
+        phi_V = calculate_fugacity_coefficients(y_vap, T, pressure_kPa_a, eos=eos, phase='vapor')
+
+        # Update K_i = phi_L / phi_V
+        diff_K = 0.0
+        for c in z:
+            K_new = phi_L[c] / max(1e-6, phi_V[c])
+            K_damped = 0.5 * K[c] + 0.5 * K_new
+            diff_K += abs(K_damped - K[c])
+            K[c] = K_damped
+
+        if diff_K < 1e-4:
+            break
 
     vap_props = calculate_eos_mixture_properties(y_vap, T, pressure_kPa_a, eos=eos)
 

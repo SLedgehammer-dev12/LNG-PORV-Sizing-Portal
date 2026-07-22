@@ -259,7 +259,7 @@ def generate_html_report(
 </div>
 
 <div class="card">
-    <h2>3. Standart Vana Anma Ölçüsü Karşılaştırma Matrisi (P_atm = 906.03 mbar_a)</h2>
+    <h2>3. Standart Vana Anma Ölçüsü Karşılaştırma Matrisi (P_atm = {inputs['P_atm_min']:.2f} mbar_a)</h2>
     <table>
         <thead>
             <tr>
@@ -285,7 +285,12 @@ def generate_html_report(
             </tr>
         """
 
-    html += """
+    # Dynamically extract coverage percentages for 16"x18" and 18"x20" from matrix_results
+    cov_16 = next((m['coverage_pct'] for m in matrix_results if '148' in str(m['orifice_area_mm2'])), 95.0)
+    cov_18 = next((m['coverage_pct'] for m in matrix_results if '191' in str(m['orifice_area_mm2'])), 123.5)
+    max_q_fill_16 = inputs['Q_fill'] * (cov_16 / 100.0)
+
+    html += f"""
         </tbody>
     </table>
 </div>
@@ -328,11 +333,11 @@ def generate_html_report(
 
 <div class="card">
     <h2>5. Mühendislik Sonuç ve Tavsiye Raporu</h2>
-    <p>Minimum sahadaki atmosferik basınç olan <strong>{inputs['P_atm_min']:.2f} mbar_a</strong> şartlarında gaz yoğunluğunun düşmesi nedeniyle $16" \\times 18"$ ebadındaki standart bir PORV vanası <strong>%{sizing_results['matrix'][1]['coverage_pct']:.1f}</strong> kapasitede kalmaktadır.</p>
+    <p>Minimum sahadaki atmosferik basınç olan <strong>{inputs['P_atm_min']:.2f} mbar_a</strong> şartlarında gaz yoğunluğunun düşmesi nedeniyle $16" \\times 18"$ ebadındaki standart bir PORV vanası <strong>%{cov_16:.1f}</strong> kapasitede kalmaktadır.</p>
     <ul>
-        <li><strong>Seçenek A (Tavsiye Edilen)</strong>: 3+1 PORV düzeninde vana anma çapı <strong>18" x 20" (DN450 x DN500)</strong> olarak büyütülmelidir. Bu durumda vana %123.5 kapasite ile tam emniyet sağlar.</li>
-        <li><strong>Seçenek B (Konfigürasyon Revizyonu)</strong>: BOTAŞ Şartnamesi 16" x 18" tutulacaksa vana düzeni <strong>4 Çalışan + 1 Yedek</strong> olarak güncellenmelidir.</li>
-        <li><strong>Seçenek C (Dolum Hızı Sınırlama)</strong>: 16" x 18" vanalar 3+1 düzeninde tutulacaksa gemi LNG dolum hızı <strong>9.600 m³/saat</strong> seviyesi ile sınırlandırılmalıdır.</li>
+        <li><strong>Seçenek A (Tavsiye Edilen)</strong>: 3+1 PORV düzeninde vana anma çapı <strong>18" x 20" (DN450 x DN500)</strong> olarak büyütülmelidir. Bu durumda vana <strong>%{cov_18:.1f}</strong> kapasite ile tam emniyet sağlar.</li>
+        <li><strong>Seçenek B (Konfigürasyon Revizyonu)</strong>: 16" x 18" tutulacaksa vana düzeni <strong>4 Çalışan + 1 Yedek</strong> olarak güncellenmelidir.</li>
+        <li><strong>Seçenek C (Dolum Hızı Sınırlama)</strong>: 16" x 18" vanalar 3+1 düzeninde tutulacaksa gemi LNG dolum hızı <strong>{max_q_fill_16:,.0f} m³/saat</strong> seviyesi ile sınırlandırılmalıdır.</li>
     </ul>
 </div>
 

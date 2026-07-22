@@ -8,27 +8,82 @@ Supports expanded hydrocarbon (C1 to C6+) and non-hydrocarbon (N2, CO2, O2, H2, 
 import math
 import numpy as np
 
-# Expanded Component physical constants for COSTALD Method
-# T_c in Kelvin, P_c in bar, V_star in L/mol, M in g/mol, omega_srk dimensionless
+# Consolidated 18-Component Physical & Thermodynamic Database
+# Tc in K, Pc in bar, V_star in L/mol, M in g/mol, omega dimensionless
+# Aly-Lee / Ideal Gas Cp coefficients: Cp_ideal(T) = A + B*T + C*T^2 + D*T^3 (J/(mol*K))
 COMPONENT_DATA = {
-    'CH4': {'name': 'Methane (Metan - CH4)', 'M': 16.043, 'Tc': 190.56, 'Pc': 45.99, 'V_star': 0.0993, 'omega_srk': 0.011},
-    'C2H6': {'name': 'Ethane (Etan - C2H6)', 'M': 30.070, 'Tc': 305.32, 'Pc': 48.72, 'V_star': 0.1455, 'omega_srk': 0.099},
-    'C3H8': {'name': 'Propane (Propan - C3H8)', 'M': 44.097, 'Tc': 369.83, 'Pc': 42.48, 'V_star': 0.2001, 'omega_srk': 0.152},
-    'iC4H10': {'name': 'iso-Butane (İzo-Bütan - i-C4H10)', 'M': 58.122, 'Tc': 407.85, 'Pc': 36.40, 'V_star': 0.2568, 'omega_srk': 0.186},
-    'nC4H10': {'name': 'n-Butane (n-Bütan - n-C4H10)', 'M': 58.122, 'Tc': 425.12, 'Pc': 37.96, 'V_star': 0.2550, 'omega_srk': 0.200},
-    'iC5H12': {'name': 'iso-Pentane (İzo-Pentan - i-C5H12)', 'M': 72.150, 'Tc': 460.40, 'Pc': 33.80, 'V_star': 0.3060, 'omega_srk': 0.227},
-    'nC5H12': {'name': 'n-Pentane (n-Pentan - n-C5H12)', 'M': 72.150, 'Tc': 469.70, 'Pc': 33.70, 'V_star': 0.3040, 'omega_srk': 0.251},
-    'C6plus': {'name': 'Hexane+ (Heksan+ - C6+)', 'M': 86.180, 'Tc': 507.60, 'Pc': 30.20, 'V_star': 0.3680, 'omega_srk': 0.301},
-    'N2': {'name': 'Nitrogen (Azot - N2)', 'M': 28.013, 'Tc': 126.20, 'Pc': 34.00, 'V_star': 0.0901, 'omega_srk': 0.040},
-    'CO2': {'name': 'Carbon Dioxide (Karbondioksit - CO2)', 'M': 44.010, 'Tc': 304.10, 'Pc': 73.80, 'V_star': 0.0940, 'omega_srk': 0.224},
-    'O2': {'name': 'Oxygen (Oksijen - O2)', 'M': 31.999, 'Tc': 154.60, 'Pc': 50.40, 'V_star': 0.0734, 'omega_srk': 0.022},
-    'H2': {'name': 'Hydrogen (Hidrojen - H2)', 'M': 2.016, 'Tc': 33.19, 'Pc': 13.00, 'V_star': 0.0650, 'omega_srk': -0.216},
-    'Ar': {'name': 'Argon (Argon - Ar)', 'M': 39.948, 'Tc': 150.80, 'Pc': 48.70, 'V_star': 0.0745, 'omega_srk': 0.001},
-    'He': {'name': 'Helium (Helyum - He)', 'M': 4.003, 'Tc': 5.19, 'Pc': 2.27, 'V_star': 0.0578, 'omega_srk': -0.365},
-    'H2S': {'name': 'Hydrogen Sulfide (Hidrojen Sülfür - H2S)', 'M': 34.080, 'Tc': 373.53, 'Pc': 89.63, 'V_star': 0.1118, 'omega_srk': 0.090},
-    'H2O': {'name': 'Water Vapor (Su Buharı - H2O)', 'M': 18.015, 'Tc': 647.10, 'Pc': 220.64, 'V_star': 0.0560, 'omega_srk': 0.344},
-    'CO': {'name': 'Carbon Monoxide (Karbonmonoksit - CO)', 'M': 28.010, 'Tc': 132.86, 'Pc': 34.94, 'V_star': 0.0931, 'omega_srk': 0.049},
-    'Air': {'name': 'Air (Hava - Air)', 'M': 28.965, 'Tc': 132.53, 'Pc': 37.86, 'V_star': 0.0924, 'omega_srk': 0.035}
+    'CH4': {
+        'name': 'Methane (Metan - CH4)', 'M': 16.043, 'Tc': 190.56, 'Pc': 45.99, 'V_star': 0.0993, 'omega': 0.011, 'omega_srk': 0.011, 'k_ideal_298': 1.31,
+        'cp_coeffs': [19.25, 0.05213, 1.197e-5, -1.132e-8]
+    },
+    'C2H6': {
+        'name': 'Ethane (Etan - C2H6)', 'M': 30.070, 'Tc': 305.32, 'Pc': 48.72, 'V_star': 0.1455, 'omega': 0.099, 'omega_srk': 0.099, 'k_ideal_298': 1.19,
+        'cp_coeffs': [5.409, 0.1781, -6.938e-5, 8.713e-9]
+    },
+    'C3H8': {
+        'name': 'Propane (Propan - C3H8)', 'M': 44.097, 'Tc': 369.83, 'Pc': 42.48, 'V_star': 0.2001, 'omega': 0.152, 'omega_srk': 0.152, 'k_ideal_298': 1.13,
+        'cp_coeffs': [-4.224, 0.3063, -1.586e-4, 3.215e-8]
+    },
+    'iC4H10': {
+        'name': 'iso-Butane (İzo-Bütan - i-C4H10)', 'M': 58.122, 'Tc': 407.85, 'Pc': 36.40, 'V_star': 0.2568, 'omega': 0.186, 'omega_srk': 0.186, 'k_ideal_298': 1.10,
+        'cp_coeffs': [-7.913, 0.4029, -2.261e-4, 5.048e-8]
+    },
+    'nC4H10': {
+        'name': 'n-Butane (n-Bütan - n-C4H10)', 'M': 58.122, 'Tc': 425.12, 'Pc': 37.96, 'V_star': 0.2550, 'omega': 0.200, 'omega_srk': 0.200, 'k_ideal_298': 1.09,
+        'cp_coeffs': [3.955, 0.3713, -1.834e-4, 3.500e-8]
+    },
+    'iC5H12': {
+        'name': 'iso-Pentane (İzo-Pentan - i-C5H12)', 'M': 72.150, 'Tc': 460.40, 'Pc': 33.80, 'V_star': 0.3060, 'omega': 0.227, 'omega_srk': 0.227, 'k_ideal_298': 1.08,
+        'cp_coeffs': [-9.450, 0.4850, -2.610e-4, 5.420e-8]
+    },
+    'nC5H12': {
+        'name': 'n-Pentane (n-Pentan - n-C5H12)', 'M': 72.150, 'Tc': 469.70, 'Pc': 33.70, 'V_star': 0.3040, 'omega': 0.251, 'omega_srk': 0.251, 'k_ideal_298': 1.08,
+        'cp_coeffs': [-3.626, 0.4873, -2.580e-4, 5.310e-8]
+    },
+    'C6plus': {
+        'name': 'Hexane+ (Heksan+ - C6+)', 'M': 86.180, 'Tc': 507.60, 'Pc': 30.20, 'V_star': 0.3680, 'omega': 0.301, 'omega_srk': 0.301, 'k_ideal_298': 1.06,
+        'cp_coeffs': [-4.413, 0.5820, -3.119e-4, 6.490e-8]
+    },
+    'N2': {
+        'name': 'Nitrogen (Azot - N2)', 'M': 28.013, 'Tc': 126.20, 'Pc': 34.00, 'V_star': 0.0901, 'omega': 0.040, 'omega_srk': 0.040, 'k_ideal_298': 1.40,
+        'cp_coeffs': [31.15, -0.01357, 2.680e-5, -1.168e-8]
+    },
+    'CO2': {
+        'name': 'Carbon Dioxide (Karbondioksit - CO2)', 'M': 44.010, 'Tc': 304.10, 'Pc': 73.80, 'V_star': 0.0940, 'omega': 0.224, 'omega_srk': 0.224, 'k_ideal_298': 1.28,
+        'cp_coeffs': [24.99, 0.05519, -3.369e-5, 7.948e-9]
+    },
+    'O2': {
+        'name': 'Oxygen (Oksijen - O2)', 'M': 31.999, 'Tc': 154.60, 'Pc': 50.40, 'V_star': 0.0734, 'omega': 0.022, 'omega_srk': 0.022, 'k_ideal_298': 1.39,
+        'cp_coeffs': [29.10, -0.00877, 2.025e-5, -8.727e-9]
+    },
+    'H2': {
+        'name': 'Hydrogen (Hidrojen - H2)', 'M': 2.016, 'Tc': 33.19, 'Pc': 13.00, 'V_star': 0.0650, 'omega': -0.216, 'omega_srk': -0.216, 'k_ideal_298': 1.41,
+        'cp_coeffs': [27.14, 0.00927, -1.380e-5, 7.645e-9]
+    },
+    'Ar': {
+        'name': 'Argon (Argon - Ar)', 'M': 39.948, 'Tc': 150.80, 'Pc': 48.70, 'V_star': 0.0745, 'omega': 0.001, 'omega_srk': 0.001, 'k_ideal_298': 1.67,
+        'cp_coeffs': [20.786, 0.0, 0.0, 0.0]
+    },
+    'He': {
+        'name': 'Helium (Helyum - He)', 'M': 4.003, 'Tc': 5.19, 'Pc': 2.27, 'V_star': 0.0578, 'omega': -0.365, 'omega_srk': -0.365, 'k_ideal_298': 1.67,
+        'cp_coeffs': [20.786, 0.0, 0.0, 0.0]
+    },
+    'H2S': {
+        'name': 'Hydrogen Sulfide (Hidrojen Sülfür - H2S)', 'M': 34.080, 'Tc': 373.53, 'Pc': 89.63, 'V_star': 0.1118, 'omega': 0.090, 'omega_srk': 0.090, 'k_ideal_298': 1.32,
+        'cp_coeffs': [32.68, 0.0124, 1.93e-6, -2.10e-9]
+    },
+    'H2O': {
+        'name': 'Water Vapor (Su Buharı - H2O)', 'M': 18.015, 'Tc': 647.10, 'Pc': 220.64, 'V_star': 0.0560, 'omega': 0.344, 'omega_srk': 0.344, 'k_ideal_298': 1.33,
+        'cp_coeffs': [32.24, 0.00192, 1.055e-5, -3.596e-9]
+    },
+    'CO': {
+        'name': 'Carbon Monoxide (Karbonmonoksit - CO)', 'M': 28.010, 'Tc': 132.86, 'Pc': 34.94, 'V_star': 0.0931, 'omega': 0.049, 'omega_srk': 0.049, 'k_ideal_298': 1.40,
+        'cp_coeffs': [29.56, -0.00658, 2.013e-5, -1.223e-8]
+    },
+    'Air': {
+        'name': 'Air (Hava - Air)', 'M': 28.965, 'Tc': 132.53, 'Pc': 37.86, 'V_star': 0.0924, 'omega': 0.035, 'omega_srk': 0.035, 'k_ideal_298': 1.40,
+        'cp_coeffs': [28.97, -0.00157, 1.708e-5, -8.773e-9]
+    }
 }
 
 def calculate_costald_density(composition_mol_pct: dict, temperature_k: float = 118.15, pressure_bar_a: float = 1.20) -> dict:

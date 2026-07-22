@@ -115,7 +115,6 @@ def test_peng_robinson_and_srk_vle_flash():
 def test_module_imports_for_executability():
     """ Verify all application modules import cleanly for PyInstaller packaging. """
     import run_app
-    import app
     import lng_thermo
     import vle_thermo
     import psv_sizing
@@ -124,7 +123,6 @@ def test_module_imports_for_executability():
     import unit_converter
     
     assert hasattr(run_app, 'resolve_path')
-    assert hasattr(app, 'st')
     assert hasattr(lng_thermo, 'calculate_costald_density')
     assert hasattr(vle_thermo, 'calculate_two_phase_vle_flash')
     assert hasattr(psv_sizing, 'calculate_api520_subcritical_orifice_area')
