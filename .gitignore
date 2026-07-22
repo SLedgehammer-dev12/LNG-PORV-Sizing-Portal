@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Streamlit
+.streamlit/
+!.streamlit/config.toml
+
+# PyInstaller / Build outputs
+build/
+dist/
+*.spec
+
+# OS
+.DS_Store
+Thumbs.db

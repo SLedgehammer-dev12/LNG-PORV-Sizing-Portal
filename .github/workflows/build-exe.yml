@@ -1,0 +1,61 @@
+name: Build Windows Single-File Executable & Create Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    name: Build LNG PORV Sizing Standalone EXE (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Automated Verification Tests
+        run: |
+          python -m pytest test_app.py test_unit_converter.py -v
+
+      - name: Build Standalone Windows Executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing --collect-data streamlit --collect-data plotly --collect-data pandas --copy-metadata streamlit --add-data "psv_database.json;." run_app.py
+
+      - name: Upload Build Artifact to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: LNG_PORV_Sizing_Windows_Executable
+          path: dist/LNG_PORV_Sizing.exe
+          retention-days: 90
+
+      - name: Publish GitHub Release (On Tag Push or Dispatch)
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/LNG_PORV_Sizing.exe
+          body_path: RELEASE_NOTES.md
+          name: LNG PORV Sizing Portal v1.0.0 (Windows Standalone EXE)
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
