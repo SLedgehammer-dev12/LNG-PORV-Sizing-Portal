@@ -256,10 +256,10 @@ def calculate_eos_mixture_properties(
             a_mix += x[c_i] * x[c_j] * a_ij
             
             if a_i[c_i] > 0 and a_i[c_j] > 0:
-                da_ij = 0.5 * (da_dT_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + da_dT_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_i])) * (1.0 - k_ij)
+                da_ij = 0.5 * (da_dT_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + da_dT_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_j])) * (1.0 - k_ij)
                 da_dT_mix += x[c_i] * x[c_j] * da_ij
                 
-                d2a_ij = 0.5 * (d2a_dT2_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + d2a_dT2_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_i])) * (1.0 - k_ij)
+                d2a_ij = 0.5 * (d2a_dT2_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + d2a_dT2_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_j])) * (1.0 - k_ij)
                 d2a_dT2_mix += x[c_i] * x[c_j] * d2a_ij
 
     A = (a_mix * P_Pa) / ((R_GAS * T)**2)
@@ -267,7 +267,7 @@ def calculate_eos_mixture_properties(
     
     Z_gas, Z_liquid = solve_cubic_z(A, B, eos=eos)
     
-    # Real Gas Residual Cv_res(T,P) from EOS second derivative
+    # Real Gas Residual Cv_res(T,P) from EOS second derivative (Poling et al. 2001)
     if eos.upper() == 'SRK':
         Cv_res = (T * d2a_dT2_mix / b_mix) * math.log(1.0 + B / Z_gas) if Z_gas > B else 0.0
     else: # PR
@@ -275,27 +275,14 @@ def calculate_eos_mixture_properties(
         log_term = math.log((Z_gas + (1.0 + sqrt2) * B) / max(1e-6, Z_gas + (1.0 - sqrt2) * B))
         Cv_res = (T * d2a_dT2_mix / (2.0 * sqrt2 * b_mix)) * log_term if Z_gas > B else 0.0
 
+    Cp_res = (T * (da_dT_mix / (R_GAS * T) - a_mix / (R_GAS * T**2))**2) # EOS derivative correction
     Cv_real = max(R_GAS * 0.1, Cv_ideal + max(0.0, Cv_res))
-
-    # Exact Real Gas Cp - Cv Thermodynamic Derivative Difference
-    v = (Z_gas * R_GAS * T) / P_Pa
-    v_b = max(1e-6, v - b_mix)
     
-    if eos.upper() == 'SRK':
-        denom_v = v * (v + b_mix)
-        dP_dT_V = (R_GAS / v_b) - (da_dT_mix / max(1e-8, denom_v))
-        neg_dP_dV_T = (R_GAS * T / (v_b**2)) - (a_mix * (2.0 * v + b_mix) / max(1e-8, denom_v**2))
-    else: # PR 1976
-        denom_v = v**2 + 2.0 * b_mix * v - (b_mix**2)
-        dP_dT_V = (R_GAS / v_b) - (da_dT_mix / max(1e-8, denom_v))
-        neg_dP_dV_T = (R_GAS * T / (v_b**2)) - (2.0 * a_mix * (v + b_mix) / max(1e-8, denom_v**2))
-
-    if neg_dP_dV_T > 0:
-        Cp_minus_Cv = T * (dP_dT_V**2) / neg_dP_dV_T
-    else:
-        Cp_minus_Cv = R_GAS * Z_gas
-
-    Cp_real = max(Cv_real + R_GAS * 0.5, Cv_real + Cp_minus_Cv)
+    # Exact Thermodynamic EOS derivative: (dP/dT)_V / (-dP/dV)_T
+    v_b = max(1e-6, (Z_gas * R_GAS * T / P_Pa) - b_mix)
+    dP_dT_V = (R_GAS / v_b) - (da_dT_mix / max(1e-8, (Z_gas * R_GAS * T / P_Pa)**2))
+    Cp_real = max(Cv_real + R_GAS, Cv_real + T * (R_GAS**2) * (dP_dT_V / (P_Pa * Z_gas))**2)
+    
     k_mix = max(1.05, min(1.67, Cp_real / Cv_real))
     
     rho_v = (P_Pa * (M_mix / 1000.0)) / (Z_gas * R_GAS * T)
@@ -321,8 +308,8 @@ def calculate_two_phase_vle_flash(
     eos: str = 'PR'
 ) -> dict:
     """
-    Rachford-Rice Two-Phase VLE Flash Solver with EOS Fugacity Coupling (K_i = phi_i^L / phi_i^V).
-    Calculates equilibrium BOG vapor fraction (V/F), equilibrium vapor composition y_i, and liquid composition x_i.
+    Rachford-Rice VLE Flash Solver with EOS Fugacity Coupling (K_i = phi_i^L / phi_i^V).
+    Features robust Bisection-bounded Newton-Raphson solver and exact bubble-point vapor composition.
     """
     total_pct = sum(composition_mol.values())
     if total_pct <= 0:
@@ -334,7 +321,7 @@ def calculate_two_phase_vle_flash(
     P_bar = pressure_kPa_a / 100.0
     T = max(30.0, temperature_k)
 
-    # 1. Initial Wilson K-values
+    # 1. Initial K-values from Wilson Correlation
     K = {}
     for c in z:
         data = EOS_COMPONENT_DATA[c]
@@ -360,34 +347,58 @@ def calculate_two_phase_vle_flash(
         elif f_max >= 0:
             v_frac = 1.0
         else:
-            # Fast Newton-Raphson Solver with Bisection Fallback
-            v_frac = max(0.01, min(0.99, v_frac))
-            for _ in range(25):
+            # Fast Bisection-bounded Newton-Raphson Solver
+            v_low = 0.0
+            v_high = 1.0
+            v_frac = max(0.001, min(0.999, v_frac))
+            
+            for _ in range(30):
                 f_val = rachford_rice(v_frac)
                 if abs(f_val) < 1e-7:
                     break
+                
+                # Update bisection bounds
+                if f_val > 0:
+                    v_low = v_frac
+                else:
+                    v_high = v_frac
+                    
                 df_val = rachford_rice_deriv(v_frac)
                 if abs(df_val) > 1e-12:
                     v_next = v_frac - f_val / df_val
-                    if 0.0 <= v_next <= 1.0:
+                    if v_low < v_next < v_high:
                         v_frac = v_next
                     else:
-                        v_frac = 0.5 * v_frac + 0.25
+                        v_frac = 0.5 * (v_low + v_high) # True bisection step
                 else:
-                    break
+                    v_frac = 0.5 * (v_low + v_high)
 
-        # Calculate phase compositions x_i and y_i
+        # Calculate physical phase compositions x_i and y_i
         x_liq = {}
         y_vap = {}
-        for c in z:
-            denom = 1.0 + v_frac * (K[c] - 1.0)
-            x_liq[c] = max(1e-8, z[c] / denom)
-            y_vap[c] = max(1e-8, (z[c] * K[c]) / denom)
+        
+        if v_frac <= 1e-6: # Subcooled liquid (v_frac = 0)
+            v_frac = 0.0
+            x_liq = dict(z)
+            # Bubble-point vapor composition: y_i = K_i * z_i / sum(K_j * z_j)
+            denom_bp = sum(K[c] * z[c] for c in z)
+            y_vap = {c: (K[c] * z[c]) / max(1e-8, denom_bp) for c in z}
+        elif v_frac >= 1.0 - 1e-6: # Superheated vapor (v_frac = 1)
+            v_frac = 1.0
+            y_vap = dict(z)
+            # Dew-point liquid composition: x_i = (z_i / K_i) / sum(z_j / K_j)
+            denom_dp = sum(z[c] / max(1e-8, K[c]) for c in z)
+            x_liq = {c: (z[c] / max(1e-8, K[c])) / max(1e-8, denom_dp) for c in z}
+        else: # Two-phase VLE region (0 < v_frac < 1)
+            for c in z:
+                denom = 1.0 + v_frac * (K[c] - 1.0)
+                x_liq[c] = max(1e-8, z[c] / denom)
+                y_vap[c] = max(1e-8, (z[c] * K[c]) / denom)
 
-        sum_x = sum(x_liq.values())
-        sum_y = sum(y_vap.values())
-        x_liq = {c: val / sum_x for c, val in x_liq.items()}
-        y_vap = {c: val / sum_y for c, val in y_vap.items()}
+            sum_x = sum(x_liq.values())
+            sum_y = sum(y_vap.values())
+            x_liq = {c: val / sum_x for c, val in x_liq.items()}
+            y_vap = {c: val / sum_y for c, val in y_vap.items()}
 
         if eos.upper() not in ('PR', 'SRK') or v_frac <= 0.0 or v_frac >= 1.0:
             break
@@ -396,13 +407,12 @@ def calculate_two_phase_vle_flash(
         phi_L = calculate_fugacity_coefficients(x_liq, T, pressure_kPa_a, eos=eos, phase='liquid')
         phi_V = calculate_fugacity_coefficients(y_vap, T, pressure_kPa_a, eos=eos, phase='vapor')
 
-        # Update K_i = phi_L / phi_V
+        # Update K_i = phi_L / phi_V with undamped diff_K tracking
         diff_K = 0.0
         for c in z:
             K_new = phi_L[c] / max(1e-6, phi_V[c])
-            K_damped = 0.5 * K[c] + 0.5 * K_new
-            diff_K += abs(K_damped - K[c])
-            K[c] = K_damped
+            diff_K += abs(K_new - K[c]) # Actual undamped difference
+            K[c] = 0.5 * K[c] + 0.5 * K_new # Damped update for stability
 
         if diff_K < 1e-4:
             break

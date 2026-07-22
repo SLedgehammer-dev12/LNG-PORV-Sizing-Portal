@@ -427,7 +427,19 @@ with m_col6:
 st.header("1. Standart Orifis Alanı Karşılaştırma Matrisi")
 st.caption(f"Min. Sahadaki Atmosferik Basınç ({P_atm_min:.2f} mbar_a) ve Relieving Pressure ({P1_mbar_a:.2f} mbar_a) altında değerlendirme:")
 
+filter_mode = st.radio(
+    "Vana Görünüm Filtresi:",
+    ["Tüm Vanaları Göster", "Yalnızca Uyumlu Vanaları Göster (Kapasite ≥ %100)"],
+    index=0,
+    horizontal=True
+)
+
 matrix_df = pd.DataFrame(matrix)
+matrix_df = matrix_df.sort_values(by='coverage_pct', ascending=False)
+
+if filter_mode == "Yalnızca Uyumlu Vanaları Göster (Kapasite ≥ %100)":
+    matrix_df = matrix_df[matrix_df['coverage_pct'] >= 100.0]
+
 matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
 matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
 

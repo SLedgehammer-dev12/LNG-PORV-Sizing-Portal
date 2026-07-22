@@ -112,6 +112,17 @@ def test_peng_robinson_and_srk_vle_flash():
     assert 0.90 < srk_res['Z_gas'] < 1.0, f"SRK Z_gas should be ~0.96, got {srk_res['Z_gas']}"
     assert 1.25 < srk_res['k_mix'] < 1.55, f"SRK dynamic k_mix should be ~1.46, got {srk_res['k_mix']}"
 
+def test_vle_flash_bisection_and_bubble_point():
+    """ Test that V/F flash ratio does not lock at 50% and subcooled liquid (v_frac=0) computes bubble-point y_vap. """
+    from vle_thermo import calculate_two_phase_vle_flash
+    sample_comp = {'CH4': 90.0, 'C2H6': 5.0, 'C3H8': 3.0, 'N2': 2.0}
+    
+    # Subcooled condition: Low temperature T=100K -> v_frac should be 0.0
+    sub_res = calculate_two_phase_vle_flash(sample_comp, temperature_k=100.0, pressure_kPa_a=150.0, eos='PR')
+    assert sub_res['v_frac_VF'] == 0.0, f"Expected v_frac=0 at 100K, got {sub_res['v_frac_VF']}"
+    assert sub_res['y_vapor']['N2'] > sub_res['x_liquid']['N2'], "Bubble point vapor N2 fraction should be enriched vs liquid"
+    assert sum(sub_res['y_vapor'].values()) == pytest.approx(1.0, abs=1e-4)
+
 def test_module_imports_for_executability():
     """ Verify all application modules import cleanly for PyInstaller packaging. """
     import run_app
