@@ -38,7 +38,7 @@ jobs:
 
       - name: Build Standalone Windows Executable with PyInstaller
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing --collect-data streamlit --collect-data plotly --collect-data pandas --copy-metadata streamlit --add-data "psv_database.json;." run_app.py
+          pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing --add-data "app.py;." --add-data "psv_database.json;." --collect-all streamlit --collect-all plotly --collect-data pandas --copy-metadata streamlit --hidden-import scipy --hidden-import reportlab run_app.py
 
       - name: Upload Build Artifact to GitHub Actions
         uses: actions/upload-artifact@v4

@@ -3,6 +3,7 @@ Unit Verification Test Suite for LNG PSV Relief Valve Sizing Application
 Tests COSTALD method, relief load decomposition, API 520 subcritical sizing, and PSV manufacturer search.
 """
 
+import os
 import pytest
 from lng_thermo import calculate_costald_density, calculate_vapor_density
 from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix
@@ -58,5 +59,60 @@ def test_psv_database_matching():
     assert len(top_matches) > 0
     assert top_matches[0]['coverage_pct'] > 120.0
 
+def test_run_app_path_resolution(tmp_path, monkeypatch):
+    """ Test run_app resolve_path in both standard and PyInstaller sys._MEIPASS frozen modes. """
+    import sys
+    from run_app import resolve_path
+    
+    # 1. Standard mode
+    standard_path = resolve_path("app.py")
+    assert standard_path.endswith("app.py")
+    
+    # 2. Simulated PyInstaller frozen mode
+    fake_meipass = str(tmp_path / "fake_meipass")
+    monkeypatch.setattr(sys, "_MEIPASS", fake_meipass, raising=False)
+    
+    frozen_path = resolve_path("app.py")
+    assert frozen_path == os.path.join(fake_meipass, "app.py")
+
+def test_psv_database_frozen_path(tmp_path, monkeypatch):
+    """ Test psv_database JSON loading under simulated PyInstaller sys._MEIPASS frozen environment. """
+    import sys
+    import json
+    import psv_database
+    
+    # Create fake psv_database.json inside temporary meipass directory
+    fake_meipass = tmp_path / "meipass_test"
+    fake_meipass.mkdir()
+    fake_db_file = fake_meipass / "psv_database.json"
+    dummy_data = [{"id": "TEST_VALVE", "manufacturer": "TestCorp", "series": "Series 100", "type": "PORV", "dn_size": "10x12", "orifice_area_mm2": 50000.0, "discharge_coeff_kd": 0.85, "cryogenic_certified": True}]
+    fake_db_file.write_text(json.dumps(dummy_data), encoding="utf-8")
+    
+    # Simulate PyInstaller frozen environment
+    monkeypatch.setattr(sys, "_MEIPASS", str(fake_meipass), raising=False)
+    
+    db_items = psv_database.load_psv_database()
+    assert len(db_items) == 1
+    assert db_items[0]["manufacturer"] == "TestCorp"
+
+def test_module_imports_for_executability():
+    """ Verify all application modules import cleanly for PyInstaller packaging. """
+    import run_app
+    import app
+    import lng_thermo
+    import psv_sizing
+    import psv_database
+    import report_generator
+    import unit_converter
+    
+    assert hasattr(run_app, 'resolve_path')
+    assert hasattr(app, 'st')
+    assert hasattr(lng_thermo, 'calculate_costald_density')
+    assert hasattr(psv_sizing, 'calculate_api520_subcritical_orifice_area')
+    assert hasattr(psv_database, 'search_matching_valves')
+    assert hasattr(report_generator, 'generate_html_report')
+    assert hasattr(unit_converter, 'convert_pressure_to_mbar')
+
 if __name__ == '__main__':
     pytest.main(['-v', 'test_app.py'])
+

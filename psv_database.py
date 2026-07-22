@@ -6,15 +6,23 @@ and matches models meeting required orifice area under specific relief condition
 
 import json
 import os
+import sys
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'psv_database.json')
+def get_db_path():
+    """ Resolves path to psv_database.json for both standard execution and PyInstaller sys._MEIPASS """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, 'psv_database.json')
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'psv_database.json')
+
+DB_PATH = get_db_path()
 
 def load_psv_database() -> list:
     """
     Loads PSV manufacturer database from JSON file.
     """
-    if os.path.exists(DB_PATH):
-        with open(DB_PATH, 'r', encoding='utf-8') as f:
+    db_file = get_db_path()
+    if os.path.exists(db_file):
+        with open(db_file, 'r', encoding='utf-8') as f:
             return json.load(f)
     return []
 
