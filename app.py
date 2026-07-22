@@ -13,7 +13,7 @@ import logging
 
 from lng_thermo import calculate_costald_density, calculate_vapor_density, COMPONENT_DATA
 from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, EOS_COMPONENT_DATA
-from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix, calculate_valve_capacity
+from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix, calculate_valve_capacity, calculate_bor_tank_bog, calculate_fire_scenario_load
 from psv_database import search_matching_valves
 from report_generator import generate_html_report
 
@@ -171,6 +171,14 @@ with input_tab1:
     with col_v2:
         N_spare = st.number_input("Yedek Vana (+1)", value=1, min_value=0, max_value=5)
 
+    st.subheader("3. Yangın Senaryosu (Fire Case) Şartları")
+    wetted_area_m2 = st.number_input("Islatılmış Tank Yüzey Alanı (A_wetted, m²)", value=1200.0, step=100.0, min_value=1.0)
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        insulation_factor_F = st.number_input("Yalıtım Faktörü (F)", value=0.15, min_value=0.01, max_value=1.0, step=0.05, help="0.15 yalıtımlı tank, 1.0 yalıtımsız tank")
+    with col_f2:
+        latent_heat_kJ_kg = st.number_input("Gizli Isı (L, kJ/kg)", value=510.0, step=10.0, min_value=10.0)
+
 # Session State for Dynamic Gas Composition Editor
 DEFAULT_ACTIVE_COMPS = ['CH4', 'C2H6', 'C3H8', 'iC4H10', 'nC4H10', 'N2']
 DEFAULT_VALS = {'CH4': 90.50, 'C2H6': 5.50, 'C3H8': 2.50, 'iC4H10': 0.50, 'nC4H10': 0.50, 'N2': 0.50}
@@ -290,12 +298,29 @@ with input_tab3:
         w_flash_manual_kg_h = 94200.0
         manual_flash_pct = None
         
-    col_wbog, col_wbogu = st.columns([3, 2])
-    with col_wbog:
-        w_bog_input = st.number_input("Isı Girişi Tank BOG Debisi", value=1570.0, step=100.0)
-    with col_wbogu:
-        w_bog_unit = st.selectbox("BOG Debi Birimi", list(MASS_FLOW_UNITS.keys()), index=0)
-    w_bog_kg_h = convert_mass_flow_to_kg_h(w_bog_input, w_bog_unit)
+    st.subheader("6. Tank Isı Girişi BOG Giriş Modu")
+    bog_mode = st.radio(
+        "Tank BOG Hesaplama Yöntemi:",
+        ["Otomatik (BOR %/gün Tank Hacminden)", "Manuel BOG Debisi Girişi"],
+        index=0,
+        help="Tank net hacmi (V_n) ve günlük kaynama oranı (% BOR/gün) ile otomatik hesaplama veya manuel BOG debisi."
+    )
+    
+    if bog_mode == "Otomatik (BOR %/gün Tank Hacminden)":
+        bog_auto_mode = True
+        bor_pct_per_day = st.number_input("Günlük Kaynama Oranı (BOR %/gün)", value=0.10, step=0.01, min_value=0.01, format="%.2f")
+        bor_calc = calculate_bor_tank_bog(tank_volume_m3=V_n, lng_density_kg_m3=rho_lng, bor_pct_per_day=bor_pct_per_day)
+        w_bog_kg_h = bor_calc['w_bog_kg_h']
+        st.info(f"💡 Otomatik Hesaplanan Tank BOG: **{w_bog_kg_h:,.1f} kg/h** (BOR: %{bor_pct_per_day:.2f}/gün)")
+    else:
+        bog_auto_mode = False
+        bor_pct_per_day = 0.10
+        col_wbog, col_wbogu = st.columns([3, 2])
+        with col_wbog:
+            w_bog_input = st.number_input("Isı Girişi Tank BOG Debisi", value=1570.0, step=100.0)
+        with col_wbogu:
+            w_bog_unit = st.selectbox("BOG Debi Birimi", list(MASS_FLOW_UNITS.keys()), index=0)
+        w_bog_kg_h = convert_mass_flow_to_kg_h(w_bog_input, w_bog_unit)
 
 # --- CORE THERMODYNAMIC & RELIEF CALCULATIONS ---
 try:
@@ -328,6 +353,24 @@ try:
     q_a_total = calculate_nfpa59a_air_equivalent(loads['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor)
     q_a_per_valve = q_a_total / N_working
 
+    # Fire Scenario Heat Absorption & Relieving Rate per API 520 / NFPA 59A
+    fire_res = calculate_fire_scenario_load(
+        wetted_area_m2=wetted_area_m2,
+        insulation_factor_F=insulation_factor_F,
+        latent_heat_kJ_kg=latent_heat_kJ_kg
+    )
+    fire_q_a_total = calculate_nfpa59a_air_equivalent(fire_res['w_fire_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor)
+
+    # Determine Governing Scenario (Operational vs Fire Case)
+    if fire_res['w_fire_kg_h'] > loads['w_total_kg_h']:
+        governing_scenario = "🔥 Yangın Senaryosu (Fire Case)"
+        governing_w_total_kg_h = fire_res['w_fire_kg_h']
+        governing_q_a_total = fire_q_a_total
+    else:
+        governing_scenario = "⚙️ Operasyonel Senaryo (Dolum + Flaş + BOG)"
+        governing_w_total_kg_h = loads['w_total_kg_h']
+        governing_q_a_total = q_a_total
+
     # API 520 Subcritical Orifice Area per valve
     subcrit = calculate_api520_subcritical_orifice_area(
         w_valve_kg_h=loads['w_total_kg_h'] / N_working,
@@ -358,6 +401,33 @@ try:
         required_air_capacity_m3_h=q_a_per_valve,
         P1_kPa_a=P1_kPa_a
     )
+
+    # Report Data Dictionary Compilation
+    report_inputs = {
+        'Q_fill': Q_fill, 'P_atm_min': P_atm_min, 'P_set': P_set,
+        'Overpressure_pct': Overpressure_pct, 'T_relief_K': T_relief_K,
+        'flash_pct': effective_flash_pct, 'flash_manual_mode': flash_manual_mode,
+        'bog_auto_mode': bog_auto_mode, 'bor_pct_per_day': bor_pct_per_day,
+        'wetted_area_m2': wetted_area_m2, 'insulation_factor_F': insulation_factor_F,
+        'latent_heat_kJ_kg': latent_heat_kJ_kg, 'K_d': 0.85, 'P1_kPa_a': P1_kPa_a
+    }
+    
+    report_thermo = {
+        'density_kg_m3': rho_lng, 'molar_mass_g_mol': M_vapor,
+        'vapor_density': rho_v, 'Z_factor': Z_factor,
+        'k_factor': k_factor, 'M_vapor': M_vapor
+    }
+    
+    report_sizing = {
+        'w_flash_kg_h': loads['w_flash_kg_h'], 'w_disp_kg_h': loads['w_disp_kg_h'],
+        'w_bog_kg_h': loads['w_bog_kg_h'], 'w_total_kg_h': loads['w_total_kg_h'],
+        'w_total_kg_s': loads['w_total_kg_s'], 'w_total_g_s': loads['w_total_kg_h'] * 1000.0 / 3600.0,
+        'q_a_total_m3_h': q_a_total, 'q_a_per_valve_m3_h': q_a_per_valve,
+        'A_o_mm2': subcrit['A_o_mm2'], 'A_o_in2': subcrit['A_o_in2'],
+        'w_valve_kg_h': loads['w_total_kg_h'] / N_working,
+        'api_details': subcrit, 'fire_details': fire_res, 'fire_q_a_total': fire_q_a_total,
+        'governing_scenario': governing_scenario, 'governing_w_total_kg_h': governing_w_total_kg_h
+    }
 
 except Exception as e:
     st.error(f"❌ **Termodinamik veya Hidrolik Hesaplama Hatası**: {str(e)}")
@@ -457,6 +527,81 @@ st.dataframe(
         'Kapasite Oranı (%)': '%{:.1f}'
     })
 )
+
+# Main Section 1.5: Detailed Engineering Formulas & Parameter Values
+st.header("1.5. Detaylı Mühendislik Formülleri, Sayısal Parametre Değerleri ve Yangın Senaryosu")
+st.caption("Aşağıdaki sekmelerde hesaplamalarda kullanılan matematiksel formüller ve sayısal parametre girdileri detaylandırılmıştır:")
+
+exp1, exp2, exp3, exp4 = st.tabs([
+    "📐 1. Toplam Tahliye Debisi & Alt Debiler",
+    "💨 2. NFPA 59A Eşdeğer Hava Debisi (Q_a)",
+    "🔥 3. API 520 Subcritical Orifis Alanı (A_o)",
+    "🚒 4. Yangın Senaryosu (Fire Case) Analizi"
+])
+
+with exp1:
+    st.markdown(f"""
+    #### 📐 Toplam Tahliye Debisi Formülleri (W_total)
+    - **Sıvı Yerdeğiştirme Debisi (W_disp)**:
+      W_disp = Q_fill × ρ_v = {Q_fill:,.0f} m³/h × {rho_v:.3f} kg/m³ = **{loads['w_disp_kg_h']:,.1f} kg/h**
+    - **Flaş BOG Debisi (W_flash)**:
+      W_flash = Q_fill × ρ_LNG × (% Flaş) = {Q_fill:,.0f} × {rho_lng:.1f} × {effective_flash_pct / 100.0:.4f} = **{loads['w_flash_kg_h']:,.1f} kg/h**
+    - **Isı Girişi Tank BOG Debisi (W_bog)**:
+      W_bog = V_n × ρ_LNG × (BOR / 2400) = {V_n:,.0f} × {rho_lng:.1f} × ({bor_pct_per_day:.2f} / 2400) = **{w_bog_kg_h:,.1f} kg/h**
+    - **Toplam Kütlesel Operasyonel Tahliye Debisi (W_total)**:
+      W_total = W_disp + W_flash + W_bog = **{loads['w_total_kg_h']:,.1f} kg/h** ({loads['w_total_kg_s'] * 1000.0:.2f} g/s)
+    """)
+
+with exp2:
+    st.markdown(f"""
+    #### 💨 NFPA 59A Madde 8.4.10.7.4.2 Eşdeğer Hava Debisi Formülü (Q_a)
+    `Q_a = 0.93 × W_total_kg_s × √(T × Z / M) × 990.8`
+
+    | Parametre Tanımı | Sembol | Sayısal Değer | Birim |
+    | :--- | :---: | :---: | :---: |
+    | Toplam Kütlesel Tahliye Debisi | W_total | **{loads['w_total_kg_s']:.3f}** | kg/s |
+    | Tahliye Sıcaklığı | T | **{T_relief_K:.2f}** | K |
+    | Gaz Sıkıştırılabilirlik Faktörü ({vle_res['eos_used']}) | Z | **{Z_factor:.4f}** | - |
+    | Buhar Faz Mol Kütlesi | M | **{M_vapor:.2f}** | g/mol |
+    | **NFPA 59A Toplam Eşdeğer Hava Debisi** | **Q_a** | **{q_a_total:,.1f}** | **m³/h Hava** |
+    | **Vana Başına Düşen Hava Debisi ({N_working} Çalışan)** | **Q_a,per_valve** | **{q_a_per_valve:,.1f}** | **m³/h Hava/Vana** |
+    """)
+
+with exp3:
+    st.markdown(f"""
+    #### 🔥 API 520 Part I Subcritical Orifis Alanı Formülü (A_o)
+    `A_o = (17.9 × W_valve) / (F2 × Kd × Kc × Kv × √(P1 × ΔP)) × √(T × Z / M)`
+    `F2 = √( [k/(k-1)] × r^(2/k) × [(1 - r^((k-1)/k)) / (1 - r)] ),  r = P2 / P1`
+
+    | Parametre Tanımı | Sembol | Sayısal Değer | Birim / Not |
+    | :--- | :---: | :---: | :--- |
+    | Vana Başına Kütlesel Yük ({N_working} Vana) | W_valve | **{loads['w_total_kg_h']/N_working:,.1f}** | kg/h |
+    | Relieving Absolüt Basınç (P1) | P1 | **{P1_kPa_a:.2f}** | kPa_a ({P1_mbar_a:.1f} mbar_a) |
+    | Çıkış Sırt Basıncı (P2) | P2 | **{P2_kPa_a:.2f}** | kPa_a ({P_atm_min:.1f} mbar_a) |
+    | Basınç Düşüşü (ΔP) | ΔP | **{P1_kPa_a - P2_kPa_a:.2f}** | kPa |
+    | Basınç Oranı (r = P2/P1) | r | **{P2_kPa_a/P1_kPa_a:.4f}** | Subcritical Rejim (r > r_c = {subcrit['r_c']:.4f}) |
+    | Subcritical Akış Katsayısı (F2) | F2 | **{subcrit['F2']:.4f}** | API 520 Subcritical Terimi |
+    | Vana Tahliye Katsayısı | Kd | **0.85** | API 520 Standart Orifis |
+    | **API 520 Gerekli Efektif Orifis Alanı** | **A_o** | **{subcrit['A_o_mm2']:,.1f}** | **mm² ({subcrit['A_o_in2']:.1f} in²)** |
+    """)
+
+with exp4:
+    is_insulated = "Yalıtımlı Çift Cidarlı Tank" if insulation_factor_F <= 0.3 else "Yalıtımsız / Hasarlı Tank"
+    st.markdown(f"""
+    #### 🚒 Yangın Senaryosu (Fire Case) Tahliye Debisi & Hüküm Süren (Governing) Senaryo Analizi
+    `Q_fire = 70.9 × F × (A_wetted ^ 0.82) (kW)`  
+    `W_fire = (Q_fire × 3600) / L (kg/h)`
+
+    | Parametre / Senaryo | Değer | Birim / Açıklama |
+    | :--- | :---: | :--- |
+    | Islatılmış Tank Yüzey Alanı (A_wetted) | **{wetted_area_m2:,.0f}** | m² |
+    | Yalıtım / Çevre Faktörü (F) | **{insulation_factor_F:.2f}** | {is_insulated} |
+    | LNG Buharlaşma Gizli Isısı (L) | **{latent_heat_kJ_kg:,.0f}** | kJ/kg |
+    | **Yangın Durumu Isı Girişi (Q_fire)** | **{fire_res['q_fire_kW']:,.1f}** | **kW** |
+    | **Yangın Senaryosu Tahliye Debisi (W_fire)** | **{fire_res['w_fire_kg_h']:,.1f}** | **kg/h** ({fire_q_a_total:,.1f} m³/h Hava) |
+    | **Operasyonel Tahliye Debisi (W_operasyonel)** | **{loads['w_total_kg_h']:,.1f}** | **kg/h** ({q_a_total:,.1f} m³/h Hava) |
+    | **🏆 HÜKÜM SÜREN (GOVERNING) SENARYO** | **{governing_scenario}** | **{governing_w_total_kg_h:,.1f} kg/h ({governing_q_a_total:,.1f} m³/h Hava)** |
+    """)
 
 # Main Section 2: Commercial Manufacturer PSV Database Matching
 st.header("2. Entegre PSV Üretici Vana Kataloğu Eşleştirmesi")

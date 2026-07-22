@@ -197,6 +197,7 @@ def generate_html_report(
         </tr>
         <tr>
             <td>COSTALD Sıvı LNG Yoğunluğu (ρ_LNG)</td>
+        <tr>
             <td><strong>{thermo_results['density_kg_m3']:.2f}</strong></td>
             <td>kg/m³</td>
             <td>Hankinson-Brobst-Thomson (COSTALD)</td>
@@ -217,28 +218,28 @@ def generate_html_report(
             <td>Flaş BOG Debisi (W_flash)</td>
             <td>{sizing_results['w_flash_kg_h']:,.1f}</td>
             <td>kg/h</td>
-            <td>{"Manuel Giriş" if inputs['flash_manual_mode'] else "Otomatik %2.0 Flaş"}</td>
+            <td>{"Manuel Giriş" if inputs.get('flash_manual_mode', False) else f"EOS VLE Flaş / %{inputs.get('flash_pct', 2.0):.2f}"}</td>
         </tr>
         <tr>
             <td>Yer Değiştirme Debisi (W_disp)</td>
             <td>{sizing_results['w_disp_kg_h']:,.1f}</td>
             <td>kg/h</td>
-            <td>Q_fill × ρ_v</td>
+            <td>Q_fill × ρ_v (W_fill = {inputs.get('Q_fill', 10000.0):,.0f} m³/h × {thermo_results['vapor_density']:.3f} kg/m³)</td>
         </tr>
         <tr>
-            <td>Isı Girişi BOG (W_bog)</td>
+            <td>Isı Girişi Tank BOG (W_bog)</td>
             <td>{sizing_results['w_bog_kg_h']:,.1f}</td>
             <td>kg/h</td>
-            <td>Tank Yalıtım Kazancı</td>
+            <td>{"Otomatik (BOR %/gün)" if inputs.get('bog_auto_mode', True) else "Manuel Tank BOG Girişi"}</td>
         </tr>
         <tr>
-            <td><strong>Toplam Kütlesel Tahliye Debisi (W_toplam)</strong></td>
+            <td><strong>Toplam Operasyonel Tahliye Debisi (W_operasyonel)</strong></td>
             <td><strong>{sizing_results['w_total_kg_h']:,.1f}</strong></td>
             <td><strong>kg/h</strong></td>
-            <td><strong>{sizing_results['w_total_g_s']:.3f} g/s</strong></td>
+            <td><strong>W_fill + W_flash + W_bog ({sizing_results['w_total_g_s']:.3f} g/s)</strong></td>
         </tr>
         <tr>
-            <td><strong>NFPA 59A Toplam Hava Eşdeğer Debisi (Q_a)</strong></td>
+            <td><strong>NFPA 59A Hava Eşdeğer Debisi (Q_a)</strong></td>
             <td><strong>{sizing_results['q_a_total_m3_h']:,.1f}</strong></td>
             <td><strong>m³/h Hava</strong></td>
             <td><strong>NFPA 59A Madde 8.4.10.7.4.2</strong></td>
@@ -255,6 +256,49 @@ def generate_html_report(
             <td><strong>mm² / Vana</strong></td>
             <td><strong>API 520 Part I Subcritical</strong></td>
         </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>2.1. Mühendislik Formülleri ve Sayısal Değişken Detayları</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Hesaplama Adımı & Standart</th>
+                <th>Kullanılan Formül</th>
+                <th>Formüldeki Sayısal Değişken Değerleri</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>NFPA 59A Madde 8.4.10.7.4.2<br>Eşdeğer Hava Debisi (Q_a)</strong></td>
+                <td><code>Q_a = 0.93 × W_total_kg_s × √(T × Z / M) × 990.8</code></td>
+                <td>
+                    W_total = {sizing_results.get('w_total_kg_s', sizing_results['w_total_kg_h']/3600.0):.3f} kg/s<br>
+                    T = {inputs.get('T_relief_K', 118.15):.2f} K | Z = {thermo_results.get('Z_factor', 0.98):.4f}<br>
+                    M = {thermo_results.get('M_vapor', 16.04):.2f} g/mol
+                </td>
+            </tr>
+            <tr>
+                <td><strong>API 520 Part I Subcritical<br>Orifis Alanı Hesabı (A_o)</strong></td>
+                <td><code>A = (17.9 × W_valve) / (F2 × Kd × Kc × Kv × √(P1 × ΔP)) × √(T × Z / M)</code></td>
+                <td>
+                    W_valve = {sizing_results.get('w_valve_kg_h', sizing_results['w_total_kg_h']/3):,.1f} kg/h<br>
+                    P1 = {sizing_results.get('api_details', {}).get('P1_kPa_a', inputs.get('P1_kPa_a', 117.0)):.2f} kPa_a | P2 = {sizing_results.get('api_details', {}).get('P2_kPa_a', inputs.get('P_atm_min', 90.6)):.2f} kPa_a<br>
+                    ΔP = {sizing_results.get('api_details', {}).get('delta_p_kPa', 26.4):.2f} kPa | r = P2/P1 = {sizing_results.get('api_details', {}).get('pressure_ratio', 0.774):.4f}<br>
+                    F2 = {sizing_results.get('api_details', {}).get('F2', 0.707):.4f} | Kd = {inputs.get('K_d', 0.85):.2f} | Kc = 1.0 | Kv = 1.0
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Yangın Senaryosu (Fire Case)<br>API 520 Part I / NFPA 59A</strong></td>
+                <td><code>Q_fire = 70.9 × F × A_wetted^0.82 (kW)<br>W_fire = (Q_fire × 3600) / L (kg/h)</code></td>
+                <td>
+                    A_wetted = {inputs.get('wetted_area_m2', 1200.0):,.0f} m² | F (Yalıtım) = {inputs.get('insulation_factor_F', 0.15):.2f}<br>
+                    L (Buharlaşma Gizli Isısı) = {inputs.get('latent_heat_kJ_kg', 510.0):,.0f} kJ/kg<br>
+                    <strong>Q_fire = {sizing_results.get('fire_details', {}).get('q_fire_kW', 3600.0):,.1f} kW | W_fire = {sizing_results.get('fire_details', {}).get('w_fire_kg_h', 25400.0):,.1f} kg/h</strong>
+                </td>
+            </tr>
+        </tbody>
     </table>
 </div>
 

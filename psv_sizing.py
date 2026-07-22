@@ -49,6 +49,47 @@ def calculate_nfpa59a_air_equivalent(w_total_kg_s: float, temperature_k: float =
     q_a_m3_h = 0.93 * w_total_kg_s * (math.sqrt(temperature_k * Z) / math.sqrt(M_g_mol)) * 990.8
     return float(q_a_m3_h)
 
+def calculate_bor_tank_bog(
+    tank_volume_m3: float,
+    lng_density_kg_m3: float = 471.0,
+    bor_pct_per_day: float = 0.10
+) -> dict:
+    """
+    Calculates automatic Tank Boil-Off Rate (BOG) mass flow rate (kg/h) based on tank volume (m3),
+    LNG density (kg/m3), and specified daily boil-off rate percentage (BOR %/day).
+    Formula: W_bog (kg/h) = Tank_Volume * LNG_Density * (BOR_pct / 100) / 24
+    """
+    m_lng_total_kg = tank_volume_m3 * lng_density_kg_m3
+    w_bog_kg_h = m_lng_total_kg * (bor_pct_per_day / 100.0) / 24.0
+    return {
+        'm_lng_total_kg': float(m_lng_total_kg),
+        'w_bog_kg_h': float(w_bog_kg_h),
+        'bor_pct_per_day': float(bor_pct_per_day)
+    }
+
+def calculate_fire_scenario_load(
+    wetted_area_m2: float = 1200.0,
+    insulation_factor_F: float = 0.15,
+    latent_heat_kJ_kg: float = 510.0
+) -> dict:
+    """
+    Calculates Fire Scenario Heat Absorption & Relieving Load per API 520 Part I Section 5.5 / NFPA 59A.
+    Formulas:
+    Q_fire (kW) = 70.9 * F * (A_wetted ** 0.82)
+    W_fire (kg/h) = Q_fire * 3600 / Latent_Heat_kJ_kg
+    """
+    q_fire_kW = 70.9 * insulation_factor_F * (max(1.0, wetted_area_m2) ** 0.82)
+    w_fire_kg_h = (q_fire_kW * 3600.0) / max(1.0, latent_heat_kJ_kg)
+    w_fire_kg_s = w_fire_kg_h / 3600.0
+    return {
+        'q_fire_kW': float(q_fire_kW),
+        'w_fire_kg_h': float(w_fire_kg_h),
+        'w_fire_kg_s': float(w_fire_kg_s),
+        'wetted_area_m2': float(wetted_area_m2),
+        'insulation_factor_F': float(insulation_factor_F),
+        'latent_heat_kJ_kg': float(latent_heat_kJ_kg)
+    }
+
 def calculate_api520_subcritical_orifice_area(
     w_valve_kg_h: float,
     P1_kPa_a: float,
@@ -68,6 +109,7 @@ def calculate_api520_subcritical_orifice_area(
     pressure_ratio = P2_kPa_a / P1_kPa_a
     
     is_subcritical = pressure_ratio > r_c
+    delta_p_kPa = max(0.1, P1_kPa_a - P2_kPa_a)
     
     if is_subcritical:
         # Standard API 520 Part I Subcritical flow coefficient F2 with /(1 - r) term
@@ -79,9 +121,9 @@ def calculate_api520_subcritical_orifice_area(
         F2 = math.sqrt(max(1e-6, term1 * term2 * term3))
         
         # Standard API 520 Part I SI Equation 16 (A_o in mm2, W in kg/h, P in kPa_a, T in K, M in g/mol)
-        delta_p_kPa = max(0.1, P1_kPa_a - P2_kPa_a)
         A_o_mm2 = (17.9 * w_valve_kg_h / (F2 * K_d * K_b * K_c * math.sqrt(P1_kPa_a * delta_p_kPa))) * math.sqrt((temperature_k * Z) / M_g_mol)
     else:
+        r = pressure_ratio
         F2 = 1.0
         C_crit = 0.03948 * math.sqrt(k * (2.0 / (k + 1.0)) ** ((k + 1.0) / (k - 1.0)))
         A_o_mm2 = (w_valve_kg_h / (C_crit * K_d * K_b * K_c * P1_kPa_a)) * math.sqrt((temperature_k * Z) / M_g_mol)
@@ -94,7 +136,18 @@ def calculate_api520_subcritical_orifice_area(
         'is_subcritical': is_subcritical,
         'pressure_ratio': float(pressure_ratio),
         'r_c': float(r_c),
-        'F2': float(F2)
+        'F2': float(F2),
+        'P1_kPa_a': float(P1_kPa_a),
+        'P2_kPa_a': float(P2_kPa_a),
+        'delta_p_kPa': float(delta_p_kPa),
+        'temperature_k': float(temperature_k),
+        'M_g_mol': float(M_g_mol),
+        'Z': float(Z),
+        'k': float(k),
+        'K_d': float(K_d),
+        'K_b': float(K_b),
+        'K_c': float(K_c),
+        'w_valve_kg_h': float(w_valve_kg_h)
     }
 
 def calculate_valve_capacity(orifice_area_mm2: float, P1_kPa_a: float, K_d: float = 0.85) -> float:
