@@ -403,14 +403,14 @@ def _compute_all_results(
 
     # Governing Scenario by orifice area
     if fire_subcrit['A_o_mm2'] > subcrit['A_o_mm2']:
-        governing_scenario = "Yangin Senaryosu (Fire Case)"
+        governing_scenario = "🔥 Yangin Senaryosu (Fire Case)"
         governing_w_total_kg_h = fire_res['w_fire_kg_h']
         governing_q_a_total = fire_q_a_total
         governing_A_o_mm2 = fire_subcrit['A_o_mm2']
         governing_matrix = fire_matrix
         governing_is_fire = True
     else:
-        governing_scenario = "Operasyonel Senaryo (Dolum + Flas + BOG)"
+        governing_scenario = "⚙️ Operasyonel Senaryo (Dolum + Flas + BOG)"
         governing_w_total_kg_h = loads['w_total_kg_h']
         governing_q_a_total = q_a_total
         governing_A_o_mm2 = subcrit['A_o_mm2']
@@ -668,7 +668,7 @@ with exp1:
     - **Flaş BOG Debisi (W_flash)**:
       W_flash = Q_fill × ρ_LNG × (% Flaş) = {Q_fill:,.0f} × {rho_lng:.1f} × {effective_flash_pct / 100.0:.4f} = **{loads['w_flash_kg_h']:,.1f} kg/h**
     - **Isı Girişi Tank BOG Debisi (W_bog)**:
-      {"W_bog = V_n × ρ_LNG × (BOR / 2400) = {V_n:,.0f} × {rho_lng:.1f} × ({bor_pct_per_day:.2f} / 2400) = **{w_bog_kg_h:,.1f} kg/h**" if bog_auto_mode else f"W_bog = **{w_bog_kg_h:,.1f} kg/h** (Manuel Giriş)"}
+      {f"W_bog = V_n × ρ_LNG × (BOR / 2400) = {V_n:,.0f} × {rho_lng:.1f} × ({bor_pct_per_day:.2f} / 2400) = **{w_bog_kg_h:,.1f} kg/h**" if bog_auto_mode else f"W_bog = **{w_bog_kg_h:,.1f} kg/h** (Manuel Giriş)"}
     - **Toplam Kütlesel Operasyonel Tahliye Debisi (W_total)**:
       W_total = W_disp + W_flash + W_bog = **{loads['w_total_kg_h']:,.1f} kg/h** ({loads['w_total_kg_s'] * 1000.0:.2f} g/s)
     """)
