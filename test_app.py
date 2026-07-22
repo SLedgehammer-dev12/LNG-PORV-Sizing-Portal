@@ -112,6 +112,11 @@ def test_peng_robinson_and_srk_vle_flash():
     assert 0.90 < srk_res['Z_gas'] < 1.0, f"SRK Z_gas should be ~0.96, got {srk_res['Z_gas']}"
     assert 1.25 < srk_res['k_mix'] < 1.55, f"SRK dynamic k_mix should be ~1.46, got {srk_res['k_mix']}"
 
+    # 3. HEOS (GERG-2008) Test
+    heos_res = calculate_two_phase_vle_flash(sample_comp, temperature_k=118.15, pressure_kPa_a=117.0, eos='HEOS')
+    assert 0.90 < heos_res['Z_gas'] < 1.0, f"HEOS Z_gas should be ~0.94, got {heos_res['Z_gas']}"
+    assert 1.25 < heos_res['k_mix'] < 1.55, f"HEOS dynamic k_mix should be ~1.40, got {heos_res['k_mix']}"
+
 def test_vle_flash_bisection_and_bubble_point():
     """ Test that V/F flash ratio does not lock at 50% and subcooled liquid (v_frac=0) computes bubble-point y_vap. """
     from vle_thermo import calculate_two_phase_vle_flash

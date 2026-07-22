@@ -23,6 +23,26 @@ BINARY_INTERACTION_K_IJ = {
     ('CO2', 'C2H6'): 0.130, ('C2H6', 'CO2'): 0.130
 }
 
+# CoolProp Fluid Name Mapping for HEOS (GERG-2008) Helmholtz Energy EOS
+COOLPROP_FLUID_NAMES = {
+    'CH4': 'Methane',
+    'C2H6': 'Ethane',
+    'C3H8': 'Propane',
+    'iC4H10': 'Isobutane',
+    'nC4H10': 'n-Butane',
+    'iC5H12': 'Isopentane',
+    'nC5H12': 'n-Pentane',
+    'nC6H14': 'n-Hexane',
+    'nC7H16': 'n-Heptane',
+    'nC8H18': 'n-Octane',
+    'N2': 'Nitrogen',
+    'CO2': 'CarbonDioxide',
+    'H2S': 'HydrogenSulfide',
+    'H2': 'Hydrogen',
+    'He': 'Helium',
+    'O2': 'Oxygen'
+}
+
 def get_k_ij(comp_i: str, comp_j: str) -> float:
     if comp_i == comp_j:
         return 0.0
@@ -198,7 +218,27 @@ def calculate_eos_mixture_properties(
     Cp_ideal = sum(x[c] * calculate_cp_ideal_component(c, T) for c in x)
     Cv_ideal = Cp_ideal - R_GAS
 
-    if eos.upper() in ('IDEAL', 'GERG2008'):
+    if eos.upper() in ('HEOS', 'GERG2008'):
+        try:
+            import CoolProp.CoolProp as CP
+            fluid_parts = [f"{COOLPROP_FLUID_NAMES[c]}[{pct:.6f}]" for c, pct in x.items() if c in COOLPROP_FLUID_NAMES]
+            if fluid_parts:
+                fluid_str = "HEOS::" + "&".join(fluid_parts)
+                Z_gas = CP.PropsSI('Z', 'T', T, 'P', P_Pa, fluid_str)
+                cp_molar = CP.PropsSI('Cpmolar', 'T', T, 'P', P_Pa, fluid_str)
+                cv_molar = CP.PropsSI('Cvmolar', 'T', T, 'P', P_Pa, fluid_str)
+                k_mix = max(1.05, min(1.67, cp_molar / max(1e-6, cv_molar)))
+                rho_v = CP.PropsSI('D', 'T', T, 'P', P_Pa, fluid_str)
+                M_coolprop = CP.PropsSI('molar_mass', 'T', T, 'P', P_Pa, fluid_str) * 1000.0
+                return {
+                    'Z_gas': float(Z_gas), 'Z_liquid': float(Z_gas), 'k_mix': float(k_mix),
+                    'Cp_ideal': float(Cp_ideal), 'Cp_real': float(cp_molar / M_coolprop * 1000.0), 'Cv_real': float(cv_molar / M_coolprop * 1000.0),
+                    'M_mix': float(M_mix), 'rho_v_kg_m3': float(rho_v), 'A': 0.0, 'B': 0.0, 'eos_name': 'HEOS (GERG-2008)'
+                }
+        except Exception as err:
+            logger.warning(f"CoolProp HEOS calculation error, falling back to PR: {err}")
+
+    if eos.upper() == 'IDEAL':
         Z_gas = 1.0
         Z_liquid = 1.0
         Cv_real = Cp_ideal - R_GAS

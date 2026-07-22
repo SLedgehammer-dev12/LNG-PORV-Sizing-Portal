@@ -104,7 +104,12 @@ st.sidebar.header("⚙️ Girdi, EOS ve Birim Ayarları")
 
 eos_choice = st.sidebar.selectbox(
     "📊 Termodinamik Durum Denklemi (EOS)",
-    ["Peng-Robinson (PR 1976)", "Soave-Redlich-Kwong (SRK)", "İdeal Gaz (Ideal Gas)"],
+    [
+        "Peng-Robinson (PR 1976)",
+        "Soave-Redlich-Kwong (SRK)",
+        "HEOS (GERG-2008 Helmholtz Energy EOS)",
+        "İdeal Gaz (Ideal Gas)"
+    ],
     index=0,
     help="VLE Flaş dengesi, Z sıkıştırılabilirlik faktörü ve dinamik Cp/Cv k_mix(T,P) hesabı için EOS modeli."
 )
@@ -112,6 +117,8 @@ eos_choice = st.sidebar.selectbox(
 eos_code = 'PR'
 if 'SRK' in eos_choice:
     eos_code = 'SRK'
+elif 'HEOS' in eos_choice or 'GERG' in eos_choice:
+    eos_code = 'HEOS'
 elif 'İdeal' in eos_choice:
     eos_code = 'IDEAL'
 

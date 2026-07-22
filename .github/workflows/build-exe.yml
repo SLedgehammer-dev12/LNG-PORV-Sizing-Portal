@@ -39,7 +39,7 @@ jobs:
       - name: Build Standalone Windows Executable with PyInstaller
         run: |
           $ST_STATIC = python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))"
-          pyinstaller --noconfirm --onefile --windowed --noupx --name LNG_PORV_Sizing --add-data "app.py;." --add-data "psv_database.json;." --add-data "${ST_STATIC};streamlit/static" --collect-all streamlit --collect-all plotly --collect-data pandas --copy-metadata streamlit run_app.py
+          pyinstaller --noconfirm --onefile --windowed --noupx --name LNG_PORV_Sizing --add-data "app.py;." --add-data "psv_database.json;." --add-data "${ST_STATIC};streamlit/static" --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas --copy-metadata streamlit run_app.py
 
       - name: Upload Build Artifact to GitHub Actions
         uses: actions/upload-artifact@v4
