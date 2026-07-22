@@ -281,21 +281,24 @@ def generate_html_report(
             </tr>
             <tr>
                 <td><strong>API 520 Part I Subcritical<br>Orifis Alanı Hesabı (A_o)</strong></td>
-                <td><code>A = (17.9 × W_valve) / (F2 × Kd × Kc × Kv × √(P1 × ΔP)) × √(T × Z / M)</code></td>
+                <td><code>A = (17.9 × W_valve) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T × Z / M)</code></td>
                 <td>
                     W_valve = {sizing_results.get('w_valve_kg_h', sizing_results['w_total_kg_h']/3):,.1f} kg/h<br>
                     P1 = {sizing_results.get('api_details', {}).get('P1_kPa_a', inputs.get('P1_kPa_a', 117.0)):.2f} kPa_a | P2 = {sizing_results.get('api_details', {}).get('P2_kPa_a', inputs.get('P_atm_min', 90.6)):.2f} kPa_a<br>
                     ΔP = {sizing_results.get('api_details', {}).get('delta_p_kPa', 26.4):.2f} kPa | r = P2/P1 = {sizing_results.get('api_details', {}).get('pressure_ratio', 0.774):.4f}<br>
-                    F2 = {sizing_results.get('api_details', {}).get('F2', 0.707):.4f} | Kd = {inputs.get('K_d', 0.85):.2f} | Kc = 1.0 | Kv = 1.0
+                    F2 = {sizing_results.get('api_details', {}).get('F2', 0.707):.4f} | Kd = {inputs.get('K_d', 0.85):.2f} | Kb = 1.0 | Kc = 1.0
                 </td>
             </tr>
             <tr>
                 <td><strong>Yangın Senaryosu (Fire Case)<br>API 520 Part I / NFPA 59A</strong></td>
-                <td><code>Q_fire = 70.9 × F × A_wetted^0.82 (kW)<br>W_fire = (Q_fire × 3600) / L (kg/h)</code></td>
+                <td><code>Q_fire = 70.9 × F × A_wetted^0.82 (kW)<br>W_fire = (Q_fire × 3600) / L (kg/h)<br>A_o = (17.9 × W_fire_valve) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T_fire × Z_fire / M_fire)</code></td>
                 <td>
-                    A_wetted = {inputs.get('wetted_area_m2', 1200.0):,.0f} m² | F (Yalıtım) = {inputs.get('insulation_factor_F', 0.15):.2f}<br>
-                    L (Buharlaşma Gizli Isısı) = {inputs.get('latent_heat_kJ_kg', 510.0):,.0f} kJ/kg<br>
-                    <strong>Q_fire = {sizing_results.get('fire_details', {}).get('q_fire_kW', 3600.0):,.1f} kW | W_fire = {sizing_results.get('fire_details', {}).get('w_fire_kg_h', 25400.0):,.1f} kg/h</strong>
+                    A_wetted = {inputs.get('wetted_area_m2', 1200.0):,.0f} m² | F = {inputs.get('insulation_factor_F', 0.15):.2f}<br>
+                    L = {inputs.get('latent_heat_kJ_kg', 510.0):,.0f} kJ/kg | T_fire = {inputs.get('T_fire_K', 173.15):.1f} K<br>
+                    Z_fire = {thermo_results.get('fire_Z', 1.0):.4f} | k_fire = {thermo_results.get('fire_k', 1.31):.3f}<br>
+                    <strong>Q_fire = {sizing_results.get('fire_details', {}).get('q_fire_kW', 3600.0):,.1f} kW</strong><br>
+                    <strong>W_fire = {sizing_results.get('fire_details', {}).get('w_fire_kg_h', 25400.0):,.1f} kg/h | A_o_fire = {sizing_results.get('fire_subcrit', {}).get('A_o_mm2', 0):,.1f} mm²</strong><br>
+                    <strong>🏆 Governing Senaryo: {sizing_results.get('governing_scenario', 'Operasyonel')} (A_o = {sizing_results.get('governing_A_o_mm2', sizing_results['A_o_mm2']):,.1f} mm²)</strong>
                 </td>
             </tr>
         </tbody>
@@ -378,6 +381,8 @@ def generate_html_report(
 <div class="card">
     <h2>5. Mühendislik Sonuç ve Tavsiye Raporu</h2>
     <p>Minimum sahadaki atmosferik basınç olan <strong>{inputs['P_atm_min']:.2f} mbar_a</strong> şartlarında gaz yoğunluğunun düşmesi nedeniyle $16" \\times 18"$ ebadındaki standart bir PORV vanası <strong>%{cov_16:.1f}</strong> kapasitede kalmaktadır.</p>
+    <p><strong>🔥 Yangın Senaryosu Değerlendirmesi:</strong> Yangın durumu tahliye debisi ({sizing_results.get('fire_details', {}).get('w_fire_kg_h', 0):,.1f} kg/h) ve operasyonel tahliye debisi ({sizing_results['w_total_kg_h']:,.1f} kg/h) karşılaştırılmıştır. <strong>Hüküm Süren Senaryo: {sizing_results.get('governing_scenario', 'Operasyonel')}</strong> (Gerekli A_o = {sizing_results.get('governing_A_o_mm2', sizing_results['A_o_mm2']):,.1f} mm²).</p>
+    <p><strong>📐 Tasarım Basıncı Kontrolü:</strong> P_atm_max = {inputs.get('P_atm_max', 1014.60):.2f} mbar_a baz alındığında max. relieving basıncı P1_max = {(inputs['P_set'] + inputs['P_set'] * (inputs['Overpressure_pct'] / 100.0) + inputs.get('P_atm_max', 1014.60)) / 10.0:.2f} kPa_a olup, vana kapasitesi yüksek basınçta artacağından boyutlandırma konservatif olarak P_atm_min'de gerçekleştirilmiştir.</p>
     <ul>
         <li><strong>Seçenek A (Tavsiye Edilen)</strong>: 3+1 PORV düzeninde vana anma çapı <strong>18" x 20" (DN450 x DN500)</strong> olarak büyütülmelidir. Bu durumda vana <strong>%{cov_18:.1f}</strong> kapasite ile tam emniyet sağlar.</li>
         <li><strong>Seçenek B (Konfigürasyon Revizyonu)</strong>: 16" x 18" tutulacaksa vana düzeni <strong>4 Çalışan + 1 Yedek</strong> olarak güncellenmelidir.</li>

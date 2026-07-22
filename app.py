@@ -178,6 +178,12 @@ with input_tab1:
         insulation_factor_F = st.number_input("Yalıtım Faktörü (F)", value=0.15, min_value=0.01, max_value=1.0, step=0.05, help="0.15 yalıtımlı tank, 1.0 yalıtımsız tank")
     with col_f2:
         latent_heat_kJ_kg = st.number_input("Gizli Isı (L, kJ/kg)", value=510.0, step=10.0, min_value=10.0)
+    col_tfire, col_tfire_u = st.columns([3, 2])
+    with col_tfire:
+        T_fire_input = st.number_input("Yangın Tahliye Sıcaklığı (T_fire)", value=-100.0, step=5.0, help="Yangın senaryosunda tahliye edilen gazın beklenen sıcaklığı")
+    with col_tfire_u:
+        T_fire_unit = st.selectbox("Yangın T Birimi", ['°C', 'K', '°F', '°R'], index=0)
+    T_fire_K = convert_temperature_to_kelvin(T_fire_input, T_fire_unit)
 
 # Session State for Dynamic Gas Composition Editor
 DEFAULT_ACTIVE_COMPS = ['CH4', 'C2H6', 'C3H8', 'iC4H10', 'nC4H10', 'N2']
@@ -308,7 +314,7 @@ with input_tab3:
     
     if bog_mode == "Otomatik (BOR %/gün Tank Hacminden)":
         bog_auto_mode = True
-        bor_pct_per_day = st.number_input("Günlük Kaynama Oranı (BOR %/gün)", value=0.10, step=0.01, min_value=0.01, format="%.2f")
+        bor_pct_per_day = st.number_input("Günlük Kaynama Oranı (BOR %/gün)", value=0.10, step=0.01, min_value=0.01, format="%.2f", help="Tipik LNG tam dolum tank BOR değeri: %0.05 - %0.15 /gün aralığındadır.")
         bor_calc = calculate_bor_tank_bog(tank_volume_m3=V_n, lng_density_kg_m3=rho_lng, bor_pct_per_day=bor_pct_per_day)
         w_bog_kg_h = bor_calc['w_bog_kg_h']
         st.info(f"💡 Otomatik Hesaplanan Tank BOG: **{w_bog_kg_h:,.1f} kg/h** (BOR: %{bor_pct_per_day:.2f}/gün)")
@@ -353,25 +359,7 @@ try:
     q_a_total = calculate_nfpa59a_air_equivalent(loads['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor)
     q_a_per_valve = q_a_total / N_working
 
-    # Fire Scenario Heat Absorption & Relieving Rate per API 520 / NFPA 59A
-    fire_res = calculate_fire_scenario_load(
-        wetted_area_m2=wetted_area_m2,
-        insulation_factor_F=insulation_factor_F,
-        latent_heat_kJ_kg=latent_heat_kJ_kg
-    )
-    fire_q_a_total = calculate_nfpa59a_air_equivalent(fire_res['w_fire_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor)
-
-    # Determine Governing Scenario (Operational vs Fire Case)
-    if fire_res['w_fire_kg_h'] > loads['w_total_kg_h']:
-        governing_scenario = "🔥 Yangın Senaryosu (Fire Case)"
-        governing_w_total_kg_h = fire_res['w_fire_kg_h']
-        governing_q_a_total = fire_q_a_total
-    else:
-        governing_scenario = "⚙️ Operasyonel Senaryo (Dolum + Flaş + BOG)"
-        governing_w_total_kg_h = loads['w_total_kg_h']
-        governing_q_a_total = q_a_total
-
-    # API 520 Subcritical Orifice Area per valve
+    # API 520 Subcritical Orifice Area per valve (operational)
     subcrit = calculate_api520_subcritical_orifice_area(
         w_valve_kg_h=loads['w_total_kg_h'] / N_working,
         P1_kPa_a=P1_kPa_a,
@@ -383,7 +371,7 @@ try:
         K_d=0.85
     )
 
-    # Matrix evaluation dynamically from database
+    # Matrix evaluation dynamically from database (operational)
     matrix = evaluate_valve_matrix(
         q_a_per_valve_m3_h=q_a_per_valve,
         P1_kPa_a=P1_kPa_a,
@@ -394,6 +382,60 @@ try:
         k=k_factor,
         K_d=0.85
     )
+
+    # Fire Scenario Heat Absorption & Relieving Rate per API 520 / NFPA 59A
+    fire_res = calculate_fire_scenario_load(
+        wetted_area_m2=wetted_area_m2,
+        insulation_factor_F=insulation_factor_F,
+        latent_heat_kJ_kg=latent_heat_kJ_kg
+    )
+
+    # Fire Case VLE Flash at fire relief temperature for accurate Z, k, M_vapor
+    fire_vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=T_fire_K, pressure_kPa_a=P1_kPa_a, eos=eos_code)
+    fire_Z = fire_vle_res['Z_gas']
+    fire_k = fire_vle_res['k_mix']
+    fire_M_vapor = fire_vle_res['M_vapor_g_mol']
+
+    fire_q_a_total = calculate_nfpa59a_air_equivalent(fire_res['w_fire_kg_s'], temperature_k=T_fire_K, Z=fire_Z, M_g_mol=fire_M_vapor)
+    fire_q_a_per_valve = fire_q_a_total / N_working
+
+    # API 520 Subcritical Orifice Area for Fire Case
+    fire_subcrit = calculate_api520_subcritical_orifice_area(
+        w_valve_kg_h=fire_res['w_fire_kg_h'] / N_working,
+        P1_kPa_a=P1_kPa_a,
+        P2_kPa_a=P2_kPa_a,
+        temperature_k=T_fire_K,
+        M_g_mol=fire_M_vapor,
+        Z=fire_Z,
+        k=fire_k,
+        K_d=0.85
+    )
+
+    # Fire Case Valve Matrix
+    fire_matrix = evaluate_valve_matrix(
+        q_a_per_valve_m3_h=fire_q_a_per_valve,
+        P1_kPa_a=P1_kPa_a,
+        P2_kPa_a=P2_kPa_a,
+        temperature_k=T_fire_K,
+        M_g_mol=fire_M_vapor,
+        Z=fire_Z,
+        k=fire_k,
+        K_d=0.85
+    )
+
+    # Determine Governing Scenario by required orifice area (A_o)
+    if fire_subcrit['A_o_mm2'] > subcrit['A_o_mm2']:
+        governing_scenario = "🔥 Yangın Senaryosu (Fire Case)"
+        governing_w_total_kg_h = fire_res['w_fire_kg_h']
+        governing_q_a_total = fire_q_a_total
+        governing_A_o_mm2 = fire_subcrit['A_o_mm2']
+        governing_matrix = fire_matrix
+    else:
+        governing_scenario = "⚙️ Operasyonel Senaryo (Dolum + Flaş + BOG)"
+        governing_w_total_kg_h = loads['w_total_kg_h']
+        governing_q_a_total = q_a_total
+        governing_A_o_mm2 = subcrit['A_o_mm2']
+        governing_matrix = matrix
 
     # Manufacturer Database Search
     matched_valves = search_matching_valves(
@@ -409,13 +451,16 @@ try:
         'flash_pct': effective_flash_pct, 'flash_manual_mode': flash_manual_mode,
         'bog_auto_mode': bog_auto_mode, 'bor_pct_per_day': bor_pct_per_day,
         'wetted_area_m2': wetted_area_m2, 'insulation_factor_F': insulation_factor_F,
-        'latent_heat_kJ_kg': latent_heat_kJ_kg, 'K_d': 0.85, 'P1_kPa_a': P1_kPa_a
+        'latent_heat_kJ_kg': latent_heat_kJ_kg, 'K_d': 0.85, 'P1_kPa_a': P1_kPa_a,
+        'T_fire_K': T_fire_K, 'N_working': N_working, 'V_n': V_n,
+        'P_atm_max': P_atm_max
     }
     
     report_thermo = {
         'density_kg_m3': rho_lng, 'molar_mass_g_mol': M_vapor,
         'vapor_density': rho_v, 'Z_factor': Z_factor,
-        'k_factor': k_factor, 'M_vapor': M_vapor
+        'k_factor': k_factor, 'M_vapor': M_vapor,
+        'fire_Z': fire_Z, 'fire_k': fire_k, 'fire_M_vapor': fire_M_vapor
     }
     
     report_sizing = {
@@ -426,7 +471,11 @@ try:
         'A_o_mm2': subcrit['A_o_mm2'], 'A_o_in2': subcrit['A_o_in2'],
         'w_valve_kg_h': loads['w_total_kg_h'] / N_working,
         'api_details': subcrit, 'fire_details': fire_res, 'fire_q_a_total': fire_q_a_total,
-        'governing_scenario': governing_scenario, 'governing_w_total_kg_h': governing_w_total_kg_h
+        'fire_q_a_per_valve': fire_q_a_per_valve, 'fire_subcrit': fire_subcrit,
+        'fire_matrix': fire_matrix, 'governing_scenario': governing_scenario,
+        'governing_w_total_kg_h': governing_w_total_kg_h,
+        'governing_A_o_mm2': governing_A_o_mm2, 'governing_matrix': governing_matrix,
+        'fire_Z': fire_Z, 'fire_k': fire_k, 'T_fire_K': T_fire_K
     }
 
 except Exception as e:
@@ -436,6 +485,23 @@ except Exception as e:
 
 if Overpressure_pct == 0.0:
     st.info("ℹ️ **Aşırı Basınç Bilgisi**: Overpressure **%0.0** seçilmiştir. Emniyet vanası set basıncında (Relieving Pressure = Set Pressure + Patm) tam açılma kapasitesiyle değerlendirilmektedir.")
+
+# P_atm_max design pressure check
+P1_max_kPa_a = (P_set + P_set * (Overpressure_pct / 100.0) + P_atm_max) / 10.0
+P_design_mbar_g = P_set + P_atm_max - 1013.25
+col_dp1, col_dp2 = st.columns(2)
+with col_dp1:
+    st.info(f"""
+    ℹ️ **Max. Atmosferik Basınç Tasarım Kontrolü**:
+    - Max. Relieving Pressure (P1_max): **{P1_max_kPa_a:.2f} kPa_a**
+    - Tank Tasarım Basıncı (P_set + P_atm_max): **{P_design_mbar_g:.1f} mbar_g** (P_atm_max = {P_atm_max:.2f} mbar_a bazında)
+    """)
+with col_dp2:
+    st.info(f"""
+    ℹ️ **Boyutlandırma Bazı (Minimum Atmosferik)**:
+    - P1 (Kritik Boyutlandırma): **{P1_kPa_a:.2f} kPa_a** (P_atm_min = {P_atm_min:.2f} mbar_a)
+    - En düşük gaz yoğunluğu → en büyük orifis alanı ihtiyacı (konservatif yaklaşım)
+    """)
 
 # --- MAIN DASHBOARD DISPLAY ---
 
@@ -570,7 +636,7 @@ with exp2:
 with exp3:
     st.markdown(f"""
     #### 🔥 API 520 Part I Subcritical Orifis Alanı Formülü (A_o)
-    `A_o = (17.9 × W_valve) / (F2 × Kd × Kc × Kv × √(P1 × ΔP)) × √(T × Z / M)`
+    `A_o = (17.9 × W_valve) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T × Z / M)`
     `F2 = √( [k/(k-1)] × r^(2/k) × [(1 - r^((k-1)/k)) / (1 - r)] ),  r = P2 / P1`
 
     | Parametre Tanımı | Sembol | Sayısal Değer | Birim / Not |
@@ -587,6 +653,7 @@ with exp3:
 
 with exp4:
     is_insulated = "Yalıtımlı Çift Cidarlı Tank" if insulation_factor_F <= 0.3 else "Yalıtımsız / Hasarlı Tank"
+    fire_is_sub = "Subcritical" if fire_subcrit['is_subcritical'] else "Critical"
     st.markdown(f"""
     #### 🚒 Yangın Senaryosu (Fire Case) Tahliye Debisi & Hüküm Süren (Governing) Senaryo Analizi
     `Q_fire = 70.9 × F × (A_wetted ^ 0.82) (kW)`  
@@ -597,10 +664,15 @@ with exp4:
     | Islatılmış Tank Yüzey Alanı (A_wetted) | **{wetted_area_m2:,.0f}** | m² |
     | Yalıtım / Çevre Faktörü (F) | **{insulation_factor_F:.2f}** | {is_insulated} |
     | LNG Buharlaşma Gizli Isısı (L) | **{latent_heat_kJ_kg:,.0f}** | kJ/kg |
+    | Yangın Tahliye Sıcaklığı (T_fire) | **{T_fire_input:.1f} {T_fire_unit}** | Yangın senaryosu gaz sıcaklığı |
+    | Yangın Gaz Z Faktörü ({fire_vle_res['eos_used']}) | **{fire_Z:.4f}** | - |
+    | Yangın Dinamik k = Cp/Cv | **{fire_k:.3f}** | - |
     | **Yangın Durumu Isı Girişi (Q_fire)** | **{fire_res['q_fire_kW']:,.1f}** | **kW** |
     | **Yangın Senaryosu Tahliye Debisi (W_fire)** | **{fire_res['w_fire_kg_h']:,.1f}** | **kg/h** ({fire_q_a_total:,.1f} m³/h Hava) |
+    | **Yangın Senaryosu Gerekli A_o (API 520)** | **{fire_subcrit['A_o_mm2']:,.1f}** | **mm²** ({fire_is_sub}, F2={fire_subcrit['F2']:.4f}) |
     | **Operasyonel Tahliye Debisi (W_operasyonel)** | **{loads['w_total_kg_h']:,.1f}** | **kg/h** ({q_a_total:,.1f} m³/h Hava) |
-    | **🏆 HÜKÜM SÜREN (GOVERNING) SENARYO** | **{governing_scenario}** | **{governing_w_total_kg_h:,.1f} kg/h ({governing_q_a_total:,.1f} m³/h Hava)** |
+    | **Operasyonel Gerekli A_o (API 520)** | **{subcrit['A_o_mm2']:,.1f}** | **mm²** |
+    | **🏆 HÜKÜM SÜREN (GOVERNING) SENARYO** | **{governing_scenario}** | **A_o = {governing_A_o_mm2:,.1f} mm²** |
     """)
 
 # Main Section 2: Commercial Manufacturer PSV Database Matching
@@ -689,28 +761,34 @@ with chart_col2:
 # Engineering Recommendation Panel
 st.header("4. Mühendislik Çözüm Önerileri")
 
+# Dynamically compute coverage and derated fill from matrix results
+cov_16x18 = next((m['coverage_pct'] for m in matrix if '16' in m['size_name'] and '18' in m['size_name']), 95.0)
+cov_18x20 = next((m['coverage_pct'] for m in matrix if '18' in m['size_name'] and '20' in m['size_name']), 123.5)
+derated_q_fill = Q_fill * (100.0 / max(1.0, cov_16x18))
+
 col_rec1, col_rec2, col_rec3 = st.columns(3)
 
 with col_rec1:
-    st.success("""
+    st.success(f"""
     ### 🌟 Seçenek A (Tavsiye Edilen)
     **Vana Çapını Büyütme**:
-    - 3+1 PORV konfigürasyonunda vana anma çapı **18" x 20" (DN450 x DN500)** olarak seçilmelidir.
-    - Vana %123.5 kapasite kullanımı ile tam emniyet marjı sağlar.
+    - {N_working}+{N_spare} PORV konfigürasyonunda vana anma çapı **18" x 20" (DN450 x DN500)** olarak seçilmelidir.
+    - Vana **%{cov_18x20:.1f}** kapasite kullanımı ile tam emniyet marjı sağlar.
     """)
 
 with col_rec2:
-    st.warning("""
+    n_extra = N_working + 1
+    st.warning(f"""
     ### ⚠️ Seçenek B (Konfigürasyon Revizyonu)
     **Vana Adedini Arttırma**:
-    - Vana çapı 16" x 18" tutulacaksa, vana düzeni **4 Çalışan + 1 Yedek (Toplam 5 Vana)** olarak güncellenmelidir.
+    - Vana çapı 16" x 18" tutulacaksa, vana düzeni **{n_extra} Çalışan + {N_spare} Yedek (Toplam {n_extra + N_spare} Vana)** olarak güncellenmelidir.
     """)
 
 with col_rec3:
-    st.info("""
+    st.info(f"""
     ### 🛑 Seçenek C (Dolum Debisi Limiti)
     **Dolum Hızını Derate Etme**:
-    - 16" x 18" vanalar 3+1 düzeninde tutulursa, izin verilecek maksimum gemi LNG dolum debisi **9.600 m³/saat** seviyesi ile sınırlandırılmalıdır.
+    - 16" x 18" vanalar {N_working}+{N_spare} düzeninde tutulursa, izin verilecek maksimum gemi LNG dolum debisi **{derated_q_fill:,.0f} m³/saat** seviyesi ile sınırlandırılmalıdır.
     """)
 
 # Printable Report Export Button
