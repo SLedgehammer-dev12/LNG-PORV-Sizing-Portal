@@ -58,6 +58,26 @@ if __name__ == "__main__":
     os.environ["STREAMLIT_SERVER_HEADLESS"] = "true"
     os.environ["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
     
+    # Monkeypatch CLI output functions to prevent OSError [Errno 9] Bad file descriptor in PyInstaller windowed mode
+    try:
+        import click
+        click.echo = lambda *args, **kwargs: None
+        click.secho = lambda *args, **kwargs: None
+    except Exception:
+        pass
+
+    try:
+        import streamlit.cli_util
+        streamlit.cli_util.print_to_cli = lambda *args, **kwargs: None
+    except Exception:
+        pass
+
+    try:
+        import streamlit.web.bootstrap
+        streamlit.web.bootstrap._print_url = lambda *args, **kwargs: None
+    except Exception:
+        pass
+
     # Launch browser auto-opener thread
     threading.Thread(target=open_browser, daemon=True).start()
     
