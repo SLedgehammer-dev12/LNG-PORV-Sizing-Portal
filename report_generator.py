@@ -197,7 +197,6 @@ def generate_html_report(
         </tr>
         <tr>
             <td>COSTALD Sıvı LNG Yoğunluğu (ρ_LNG)</td>
-        <tr>
             <td><strong>{thermo_results['density_kg_m3']:.2f}</strong></td>
             <td>kg/m³</td>
             <td>Hankinson-Brobst-Thomson (COSTALD)</td>
@@ -373,6 +372,8 @@ def generate_html_report(
             </tr>
         """
 
+    n_work = inputs.get('N_working', 3)
+    n_spare = inputs.get('N_spare', 1)
     html += f"""
         </tbody>
     </table>
@@ -384,9 +385,9 @@ def generate_html_report(
     <p><strong>🔥 Yangın Senaryosu Değerlendirmesi:</strong> Yangın durumu tahliye debisi ({sizing_results.get('fire_details', {}).get('w_fire_kg_h', 0):,.1f} kg/h) ve operasyonel tahliye debisi ({sizing_results['w_total_kg_h']:,.1f} kg/h) karşılaştırılmıştır. <strong>Hüküm Süren Senaryo: {sizing_results.get('governing_scenario', 'Operasyonel')}</strong> (Gerekli A_o = {sizing_results.get('governing_A_o_mm2', sizing_results['A_o_mm2']):,.1f} mm²).</p>
     <p><strong>📐 Tasarım Basıncı Kontrolü:</strong> P_atm_max = {inputs.get('P_atm_max', 1014.60):.2f} mbar_a baz alındığında max. relieving basıncı P1_max = {(inputs['P_set'] + inputs['P_set'] * (inputs['Overpressure_pct'] / 100.0) + inputs.get('P_atm_max', 1014.60)) / 10.0:.2f} kPa_a olup, vana kapasitesi yüksek basınçta artacağından boyutlandırma konservatif olarak P_atm_min'de gerçekleştirilmiştir.</p>
     <ul>
-        <li><strong>Seçenek A (Tavsiye Edilen)</strong>: 3+1 PORV düzeninde vana anma çapı <strong>18" x 20" (DN450 x DN500)</strong> olarak büyütülmelidir. Bu durumda vana <strong>%{cov_18:.1f}</strong> kapasite ile tam emniyet sağlar.</li>
-        <li><strong>Seçenek B (Konfigürasyon Revizyonu)</strong>: 16" x 18" tutulacaksa vana düzeni <strong>4 Çalışan + 1 Yedek</strong> olarak güncellenmelidir.</li>
-        <li><strong>Seçenek C (Dolum Hızı Sınırlama)</strong>: 16" x 18" vanalar 3+1 düzeninde tutulacaksa gemi LNG dolum hızı <strong>{max_q_fill_16:,.0f} m³/saat</strong> seviyesi ile sınırlandırılmalıdır.</li>
+        <li><strong>Seçenek A (Tavsiye Edilen)</strong>: {n_work}+{n_spare} PORV düzeninde vana anma çapı <strong>18" x 20" (DN450 x DN500)</strong> olarak büyütülmelidir. Bu durumda vana <strong>%{cov_18:.1f}</strong> kapasite ile tam emniyet sağlar.</li>
+        <li><strong>Seçenek B (Konfigürasyon Revizyonu)</strong>: 16" x 18" tutulacaksa vana düzeni <strong>{n_work + 1} Çalışan + {n_spare} Yedek</strong> olarak güncellenmelidir.</li>
+        <li><strong>Seçenek C (Dolum Hızı Sınırlama)</strong>: 16" x 18" vanalar {n_work}+{n_spare} düzeninde tutulacaksa gemi LNG dolum hızı <strong>{max_q_fill_16:,.0f} m³/saat</strong> seviyesi ile sınırlandırılmalıdır.</li>
     </ul>
 </div>
 

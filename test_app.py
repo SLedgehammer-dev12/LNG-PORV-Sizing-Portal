@@ -128,6 +128,59 @@ def test_vle_flash_bisection_and_bubble_point():
     assert sub_res['y_vapor']['N2'] > sub_res['x_liquid']['N2'], "Bubble point vapor N2 fraction should be enriched vs liquid"
     assert sum(sub_res['y_vapor'].values()) == pytest.approx(1.0, abs=1e-4)
 
+def test_fire_scenario_load():
+    """ Test API 520 fire scenario heat absorption and relieving load. """
+    from psv_sizing import calculate_fire_scenario_load
+    # Insulated tank (F=0.15)
+    res = calculate_fire_scenario_load(wetted_area_m2=1200.0, insulation_factor_F=0.15, latent_heat_kJ_kg=510.0)
+    assert res['q_fire_kW'] > 3000.0 and res['q_fire_kW'] < 5000.0, f"Fire heat input should be ~3600 kW for F=0.15, got {res['q_fire_kW']}"
+    assert res['w_fire_kg_h'] > 20000.0 and res['w_fire_kg_h'] < 35000.0, "Fire W should be ~25000 kg/h"
+    assert abs(res['w_fire_kg_s'] - res['w_fire_kg_h'] / 3600.0) < 0.01
+    # Uninsulated tank (F=1.0) — much higher heat input
+    res_unins = calculate_fire_scenario_load(wetted_area_m2=1200.0, insulation_factor_F=1.0, latent_heat_kJ_kg=510.0)
+    assert res_unins['q_fire_kW'] > 20000.0, "Uninsulated fire case should have much higher heat input"
+    assert res_unins['w_fire_kg_h'] > res['w_fire_kg_h'] * 3.0, "Uninsulated W should be > 3x insulated"
+
+def test_fire_case_api520_orifice():
+    """ Test API 520 orifice area calculation at fire case conditions. """
+    from psv_sizing import calculate_api520_subcritical_orifice_area
+    # Fire case: higher temperature, K_d=1.0
+    res = calculate_api520_subcritical_orifice_area(
+        w_valve_kg_h=25000.0, P1_kPa_a=117.0, P2_kPa_a=90.6,
+        temperature_k=173.15, M_g_mol=16.0, Z=1.0, k=1.31, K_d=1.0
+    )
+    assert res['A_o_mm2'] > 0, "Orifice area should be positive"
+    # With K_d=1.0, area should be smaller than K_d=0.85 (higher discharge = smaller area needed)
+    res_kd085 = calculate_api520_subcritical_orifice_area(
+        w_valve_kg_h=25000.0, P1_kPa_a=117.0, P2_kPa_a=90.6,
+        temperature_k=173.15, M_g_mol=16.0, Z=1.0, k=1.31, K_d=0.85
+    )
+    assert res['A_o_mm2'] < res_kd085['A_o_mm2'], f"K_d=1.0 area ({res['A_o_mm2']:.0f}) should be < K_d=0.85 area ({res_kd085['A_o_mm2']:.0f})"
+
+def test_bor_tank_bog_calculation():
+    """ Test automatic BOG calculation from tank volume and BOR. """
+    from psv_sizing import calculate_bor_tank_bog
+    res = calculate_bor_tank_bog(tank_volume_m3=160000.0, lng_density_kg_m3=471.0, bor_pct_per_day=0.10)
+    assert res['w_bog_kg_h'] > 3000.0 and res['w_bog_kg_h'] < 3200.0, f"Expected ~3140 kg/h, got {res['w_bog_kg_h']}"
+    # Double BOR should double W_bog
+    res2 = calculate_bor_tank_bog(tank_volume_m3=160000.0, lng_density_kg_m3=471.0, bor_pct_per_day=0.20)
+    assert abs(res2['w_bog_kg_h'] - 2.0 * res['w_bog_kg_h']) < 0.01
+
+def test_vle_flash_NR_no_50pct_lock():
+    """ Test that NR solver does not lock at 50% V/F for realistic LNG conditions. """
+    from vle_thermo import calculate_two_phase_vle_flash
+    comp = {'CH4': 90.0, 'C2H6': 5.0, 'C3H8': 3.0, 'N2': 2.0}
+    # At 118K — should NOT lock at exactly 50% (the old NR fallback bug)
+    res = calculate_two_phase_vle_flash(comp, temperature_k=118.15, pressure_kPa_a=117.0, eos='PR')
+    assert res['v_frac_VF'] != pytest.approx(0.5, abs=0.01), f"V/F should NOT lock at 50%, got {res['v_frac_VF']:.4f}"
+    assert 0.0 <= res['v_frac_VF'] <= 1.0, "V/F must be in [0, 1]"
+    # At 250K — should be >50% vapor
+    res_high = calculate_two_phase_vle_flash(comp, temperature_k=250.0, pressure_kPa_a=117.0, eos='PR')
+    assert res_high['v_frac_VF'] > 0.5, f"V/F should be >50% at high temp, got {res_high['v_frac_VF']:.4f}"
+    # Verify vapor composition is physically reasonable
+    assert 'CH4' in res['y_vapor'], "Vapor phase must contain methane"
+    assert sum(res['y_vapor'].values()) == pytest.approx(1.0, abs=1e-4), "Vapor fractions must sum to 1"
+
 def test_module_imports_for_executability():
     """ Verify all application modules import cleanly for PyInstaller packaging. """
     import run_app

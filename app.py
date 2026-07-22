@@ -329,120 +329,155 @@ with input_tab3:
         w_bog_kg_h = convert_mass_flow_to_kg_h(w_bog_input, w_bog_unit)
 
 # --- CORE THERMODYNAMIC & RELIEF CALCULATIONS ---
-try:
-    P1_mbar_a = P_set + (P_set * (Overpressure_pct / 100.0)) + P_atm_min
-    P1_kPa_a = P1_mbar_a / 10.0
-    P2_kPa_a = P_atm_min / 10.0
 
-    # Execute Rachford-Rice Two-Phase VLE Flash & Real Gas EOS Properties
-    vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=T_relief_K, pressure_kPa_a=P1_kPa_a, eos=eos_code)
-    
+def _compute_all_results(
+    p_set_mbar, overpressure_pct, p_atm_min_mbar, p_atm_max_mbar,
+    q_fill_m3h, rho_lng_val, comp_dict_frozen, t_relief_K, t_lng_K,
+    t_fire_K, eos_code_val, n_working, flash_manual_mode_val,
+    w_flash_manual_kg_h_val, flash_pct_val, w_bog_kg_h_val,
+    bog_auto_mode_val, bor_pct_per_day_val,
+    wetted_area_m2_val, insulation_factor_F_val, latent_heat_kJ_kg_val
+):
+    """Cached computation pipeline for all thermodynamic and sizing results."""
+    # Convert frozen dict back
+    comp_dict = dict(comp_dict_frozen)
+
+    P1_mbar_a = p_set_mbar + (p_set_mbar * (overpressure_pct / 100.0)) + p_atm_min_mbar
+    P1_kPa_a = P1_mbar_a / 10.0
+    P2_kPa_a = p_atm_min_mbar / 10.0
+
+    # Operational VLE Flash
+    vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_relief_K, pressure_kPa_a=P1_kPa_a, eos=eos_code_val)
     Z_factor = vle_res['Z_gas']
     k_factor = vle_res['k_mix']
     rho_v = vle_res['rho_v_kg_m3']
     M_vapor = vle_res['M_vapor_g_mol']
-    
-    effective_flash_pct = vle_res['flash_pct'] if manual_flash_pct is None else manual_flash_pct
 
-    # Relieving mass flow rates
+    effective_flash_pct = vle_res['flash_pct'] if flash_pct_val is None else flash_pct_val
+
     loads = calculate_relieving_loads(
-        q_fill_m3_h=Q_fill,
-        rho_lng_kg_m3=rho_lng,
-        rho_v_kg_m3=rho_v,
-        flash_pct=effective_flash_pct,
-        w_bog_kg_h=w_bog_kg_h,
-        flash_manual_mode=flash_manual_mode,
-        w_flash_manual_kg_h=w_flash_manual_kg_h
+        q_fill_m3_h=q_fill_m3h, rho_lng_kg_m3=rho_lng_val, rho_v_kg_m3=rho_v,
+        flash_pct=effective_flash_pct, w_bog_kg_h=w_bog_kg_h_val,
+        flash_manual_mode=flash_manual_mode_val,
+        w_flash_manual_kg_h=w_flash_manual_kg_h_val
     )
 
-    # NFPA 59A Equivalent Air Rate
-    q_a_total = calculate_nfpa59a_air_equivalent(loads['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor)
-    q_a_per_valve = q_a_total / N_working
+    q_a_total = calculate_nfpa59a_air_equivalent(loads['w_total_kg_s'], temperature_k=t_relief_K, Z=Z_factor, M_g_mol=M_vapor)
+    q_a_per_valve = q_a_total / n_working
 
-    # API 520 Subcritical Orifice Area per valve (operational)
     subcrit = calculate_api520_subcritical_orifice_area(
-        w_valve_kg_h=loads['w_total_kg_h'] / N_working,
-        P1_kPa_a=P1_kPa_a,
-        P2_kPa_a=P2_kPa_a,
-        temperature_k=T_relief_K,
-        M_g_mol=M_vapor,
-        Z=Z_factor,
-        k=k_factor,
-        K_d=0.85
+        w_valve_kg_h=loads['w_total_kg_h'] / n_working,
+        P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a,
+        temperature_k=t_relief_K, M_g_mol=M_vapor, Z=Z_factor, k=k_factor, K_d=0.85
     )
 
-    # Matrix evaluation dynamically from database (operational)
     matrix = evaluate_valve_matrix(
-        q_a_per_valve_m3_h=q_a_per_valve,
-        P1_kPa_a=P1_kPa_a,
-        P2_kPa_a=P2_kPa_a,
-        temperature_k=T_relief_K,
-        M_g_mol=M_vapor,
-        Z=Z_factor,
-        k=k_factor,
-        K_d=0.85
+        q_a_per_valve_m3_h=q_a_per_valve, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a,
+        temperature_k=t_relief_K, M_g_mol=M_vapor, Z=Z_factor, k=k_factor, K_d=0.85
     )
 
-    # Fire Scenario Heat Absorption & Relieving Rate per API 520 / NFPA 59A
+    # Fire Scenario
     fire_res = calculate_fire_scenario_load(
-        wetted_area_m2=wetted_area_m2,
-        insulation_factor_F=insulation_factor_F,
-        latent_heat_kJ_kg=latent_heat_kJ_kg
+        wetted_area_m2=wetted_area_m2_val, insulation_factor_F=insulation_factor_F_val,
+        latent_heat_kJ_kg=latent_heat_kJ_kg_val
     )
 
-    # Fire Case VLE Flash at fire relief temperature for accurate Z, k, M_vapor
-    fire_vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=T_fire_K, pressure_kPa_a=P1_kPa_a, eos=eos_code)
+    fire_vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_fire_K, pressure_kPa_a=P1_kPa_a, eos=eos_code_val)
     fire_Z = fire_vle_res['Z_gas']
     fire_k = fire_vle_res['k_mix']
     fire_M_vapor = fire_vle_res['M_vapor_g_mol']
 
-    fire_q_a_total = calculate_nfpa59a_air_equivalent(fire_res['w_fire_kg_s'], temperature_k=T_fire_K, Z=fire_Z, M_g_mol=fire_M_vapor)
-    fire_q_a_per_valve = fire_q_a_total / N_working
+    fire_q_a_total = calculate_nfpa59a_air_equivalent(fire_res['w_fire_kg_s'], temperature_k=t_fire_K, Z=fire_Z, M_g_mol=fire_M_vapor)
+    fire_q_a_per_valve = fire_q_a_total / n_working
 
-    # API 520 Subcritical Orifice Area for Fire Case
     fire_subcrit = calculate_api520_subcritical_orifice_area(
-        w_valve_kg_h=fire_res['w_fire_kg_h'] / N_working,
-        P1_kPa_a=P1_kPa_a,
-        P2_kPa_a=P2_kPa_a,
-        temperature_k=T_fire_K,
-        M_g_mol=fire_M_vapor,
-        Z=fire_Z,
-        k=fire_k,
-        K_d=0.85
+        w_valve_kg_h=fire_res['w_fire_kg_h'] / n_working,
+        P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a,
+        temperature_k=t_fire_K, M_g_mol=fire_M_vapor, Z=fire_Z, k=fire_k, K_d=1.0
     )
 
-    # Fire Case Valve Matrix
     fire_matrix = evaluate_valve_matrix(
-        q_a_per_valve_m3_h=fire_q_a_per_valve,
-        P1_kPa_a=P1_kPa_a,
-        P2_kPa_a=P2_kPa_a,
-        temperature_k=T_fire_K,
-        M_g_mol=fire_M_vapor,
-        Z=fire_Z,
-        k=fire_k,
-        K_d=0.85
+        q_a_per_valve_m3_h=fire_q_a_per_valve, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a,
+        temperature_k=t_fire_K, M_g_mol=fire_M_vapor, Z=fire_Z, k=fire_k, K_d=1.0
     )
 
-    # Determine Governing Scenario by required orifice area (A_o)
+    # Governing Scenario by orifice area
     if fire_subcrit['A_o_mm2'] > subcrit['A_o_mm2']:
-        governing_scenario = "🔥 Yangın Senaryosu (Fire Case)"
+        governing_scenario = "Yangin Senaryosu (Fire Case)"
         governing_w_total_kg_h = fire_res['w_fire_kg_h']
         governing_q_a_total = fire_q_a_total
         governing_A_o_mm2 = fire_subcrit['A_o_mm2']
         governing_matrix = fire_matrix
+        governing_is_fire = True
     else:
-        governing_scenario = "⚙️ Operasyonel Senaryo (Dolum + Flaş + BOG)"
+        governing_scenario = "Operasyonel Senaryo (Dolum + Flas + BOG)"
         governing_w_total_kg_h = loads['w_total_kg_h']
         governing_q_a_total = q_a_total
         governing_A_o_mm2 = subcrit['A_o_mm2']
         governing_matrix = matrix
+        governing_is_fire = False
 
-    # Manufacturer Database Search
+    # Matched valves use governing A_o
     matched_valves = search_matching_valves(
-        req_orifice_area_mm2=subcrit['A_o_mm2'],
-        required_air_capacity_m3_h=q_a_per_valve,
+        req_orifice_area_mm2=governing_A_o_mm2,
+        required_air_capacity_m3_h=governing_q_a_total / n_working,
         P1_kPa_a=P1_kPa_a
     )
+
+    return {
+        'P1_kPa_a': P1_kPa_a, 'P2_kPa_a': P2_kPa_a, 'P1_mbar_a': P1_mbar_a,
+        'vle_res': vle_res, 'Z_factor': Z_factor, 'k_factor': k_factor, 'rho_v': rho_v,
+        'M_vapor': M_vapor, 'effective_flash_pct': effective_flash_pct, 'loads': loads,
+        'q_a_total': q_a_total, 'q_a_per_valve': q_a_per_valve,
+        'subcrit': subcrit, 'matrix': matrix,
+        'fire_res': fire_res, 'fire_Z': fire_Z, 'fire_k': fire_k, 'fire_M_vapor': fire_M_vapor,
+        'fire_q_a_total': fire_q_a_total, 'fire_q_a_per_valve': fire_q_a_per_valve,
+        'fire_subcrit': fire_subcrit, 'fire_matrix': fire_matrix,
+        'governing_scenario': governing_scenario, 'governing_w_total_kg_h': governing_w_total_kg_h,
+        'governing_q_a_total': governing_q_a_total, 'governing_A_o_mm2': governing_A_o_mm2,
+        'governing_matrix': governing_matrix, 'governing_is_fire': governing_is_fire,
+        'matched_valves': matched_valves, 'eos_code': eos_code_val
+    }
+
+
+try:
+    # Apply Streamlit caching when running inside Streamlit, otherwise call directly
+    try:
+        compute_all_results = st.cache_data(show_spinner="Hesaplanıyor...")(_compute_all_results)
+    except Exception:
+        compute_all_results = _compute_all_results
+
+    results = compute_all_results(
+        p_set_mbar=P_set, overpressure_pct=Overpressure_pct,
+        p_atm_min_mbar=P_atm_min, p_atm_max_mbar=P_atm_max,
+        q_fill_m3h=Q_fill, rho_lng_val=rho_lng,
+        comp_dict_frozen=tuple(sorted(comp_dict.items())),
+        t_relief_K=T_relief_K, t_lng_K=T_lng_K, t_fire_K=T_fire_K,
+        eos_code_val=eos_code, n_working=N_working,
+        flash_manual_mode_val=flash_manual_mode,
+        w_flash_manual_kg_h_val=w_flash_manual_kg_h, flash_pct_val=manual_flash_pct,
+        w_bog_kg_h_val=w_bog_kg_h, bog_auto_mode_val=bog_auto_mode,
+        bor_pct_per_day_val=bor_pct_per_day,
+        wetted_area_m2_val=wetted_area_m2, insulation_factor_F_val=insulation_factor_F,
+        latent_heat_kJ_kg_val=latent_heat_kJ_kg
+    )
+
+    # Unpack results
+    P1_kPa_a = results['P1_kPa_a']; P2_kPa_a = results['P2_kPa_a']; P1_mbar_a = results['P1_mbar_a']
+    vle_res = results['vle_res']; Z_factor = results['Z_factor']; k_factor = results['k_factor']
+    rho_v = results['rho_v']; M_vapor = results['M_vapor']
+    effective_flash_pct = results['effective_flash_pct']; loads = results['loads']
+    q_a_total = results['q_a_total']; q_a_per_valve = results['q_a_per_valve']
+    subcrit = results['subcrit']; matrix = results['matrix']
+    fire_res = results['fire_res']; fire_Z = results['fire_Z']; fire_k = results['fire_k']
+    fire_M_vapor = results['fire_M_vapor']; fire_q_a_total = results['fire_q_a_total']
+    fire_q_a_per_valve = results['fire_q_a_per_valve']; fire_subcrit = results['fire_subcrit']
+    fire_matrix = results['fire_matrix']; governing_scenario = results['governing_scenario']
+    governing_w_total_kg_h = results['governing_w_total_kg_h']
+    governing_q_a_total = results['governing_q_a_total']
+    governing_A_o_mm2 = results['governing_A_o_mm2']
+    governing_matrix = results['governing_matrix']; governing_is_fire = results['governing_is_fire']
+    matched_valves = results['matched_valves']
 
     # Report Data Dictionary Compilation
     report_inputs = {
@@ -452,7 +487,7 @@ try:
         'bog_auto_mode': bog_auto_mode, 'bor_pct_per_day': bor_pct_per_day,
         'wetted_area_m2': wetted_area_m2, 'insulation_factor_F': insulation_factor_F,
         'latent_heat_kJ_kg': latent_heat_kJ_kg, 'K_d': 0.85, 'P1_kPa_a': P1_kPa_a,
-        'T_fire_K': T_fire_K, 'N_working': N_working, 'V_n': V_n,
+        'T_fire_K': T_fire_K, 'N_working': N_working, 'N_spare': N_spare, 'V_n': V_n,
         'P_atm_max': P_atm_max
     }
     
@@ -594,6 +629,26 @@ st.dataframe(
     })
 )
 
+# Governing Scenario Valve Matrix (conditional fire display)
+if governing_is_fire:
+    st.subheader("🔥 Yangın Senaryosu — Hüküm Süren Vana Matrisi")
+    st.caption(f"Yangın Tahliye Sıcaklığı: {T_fire_input:.1f} {T_fire_unit} | Q_fire = {fire_res['q_fire_kW']:,.1f} kW | W_fire = {fire_res['w_fire_kg_h']:,.1f} kg/h | K_d = 1.0")
+
+    gov_df = pd.DataFrame(governing_matrix)
+    gov_df = gov_df.sort_values(by='coverage_pct', ascending=False)
+    gov_df_display = gov_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
+    gov_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
+
+    st.dataframe(
+        gov_df_display.style.format({
+            'Efektif Orifis Alanı (mm²)': '{:,.0f}',
+            'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
+            'Kapasite Oranı (%)': '%{:.1f}'
+        })
+    )
+else:
+    st.caption("ℹ️ Operasyonel senaryo hüküm sürmektedir — yangın senaryosu ilave kapasite gerektirmemektedir.")
+
 # Main Section 1.5: Detailed Engineering Formulas & Parameter Values
 st.header("1.5. Detaylı Mühendislik Formülleri, Sayısal Parametre Değerleri ve Yangın Senaryosu")
 st.caption("Aşağıdaki sekmelerde hesaplamalarda kullanılan matematiksel formüller ve sayısal parametre girdileri detaylandırılmıştır:")
@@ -613,7 +668,7 @@ with exp1:
     - **Flaş BOG Debisi (W_flash)**:
       W_flash = Q_fill × ρ_LNG × (% Flaş) = {Q_fill:,.0f} × {rho_lng:.1f} × {effective_flash_pct / 100.0:.4f} = **{loads['w_flash_kg_h']:,.1f} kg/h**
     - **Isı Girişi Tank BOG Debisi (W_bog)**:
-      W_bog = V_n × ρ_LNG × (BOR / 2400) = {V_n:,.0f} × {rho_lng:.1f} × ({bor_pct_per_day:.2f} / 2400) = **{w_bog_kg_h:,.1f} kg/h**
+      {"W_bog = V_n × ρ_LNG × (BOR / 2400) = {V_n:,.0f} × {rho_lng:.1f} × ({bor_pct_per_day:.2f} / 2400) = **{w_bog_kg_h:,.1f} kg/h**" if bog_auto_mode else f"W_bog = **{w_bog_kg_h:,.1f} kg/h** (Manuel Giriş)"}
     - **Toplam Kütlesel Operasyonel Tahliye Debisi (W_total)**:
       W_total = W_disp + W_flash + W_bog = **{loads['w_total_kg_h']:,.1f} kg/h** ({loads['w_total_kg_s'] * 1000.0:.2f} g/s)
     """)
@@ -665,13 +720,14 @@ with exp4:
     | Yalıtım / Çevre Faktörü (F) | **{insulation_factor_F:.2f}** | {is_insulated} |
     | LNG Buharlaşma Gizli Isısı (L) | **{latent_heat_kJ_kg:,.0f}** | kJ/kg |
     | Yangın Tahliye Sıcaklığı (T_fire) | **{T_fire_input:.1f} {T_fire_unit}** | Yangın senaryosu gaz sıcaklığı |
-    | Yangın Gaz Z Faktörü ({fire_vle_res['eos_used']}) | **{fire_Z:.4f}** | - |
+    | Yangın Gaz Z Faktörü ({eos_code}) | **{fire_Z:.4f}** | - |
     | Yangın Dinamik k = Cp/Cv | **{fire_k:.3f}** | - |
+    | Yangın Vana Kd (API 520 Fire) | **1.00** | Yangın senaryosu tam açılma |
     | **Yangın Durumu Isı Girişi (Q_fire)** | **{fire_res['q_fire_kW']:,.1f}** | **kW** |
     | **Yangın Senaryosu Tahliye Debisi (W_fire)** | **{fire_res['w_fire_kg_h']:,.1f}** | **kg/h** ({fire_q_a_total:,.1f} m³/h Hava) |
-    | **Yangın Senaryosu Gerekli A_o (API 520)** | **{fire_subcrit['A_o_mm2']:,.1f}** | **mm²** ({fire_is_sub}, F2={fire_subcrit['F2']:.4f}) |
+    | **Yangın Senaryosu Gerekli A_o (API 520, Kd=1.0)** | **{fire_subcrit['A_o_mm2']:,.1f}** | **mm²** ({fire_is_sub}, F2={fire_subcrit['F2']:.4f}) |
     | **Operasyonel Tahliye Debisi (W_operasyonel)** | **{loads['w_total_kg_h']:,.1f}** | **kg/h** ({q_a_total:,.1f} m³/h Hava) |
-    | **Operasyonel Gerekli A_o (API 520)** | **{subcrit['A_o_mm2']:,.1f}** | **mm²** |
+    | **Operasyonel Gerekli A_o (API 520, Kd=0.85)** | **{subcrit['A_o_mm2']:,.1f}** | **mm²** |
     | **🏆 HÜKÜM SÜREN (GOVERNING) SENARYO** | **{governing_scenario}** | **A_o = {governing_A_o_mm2:,.1f} mm²** |
     """)
 

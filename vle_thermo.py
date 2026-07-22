@@ -379,25 +379,29 @@ def calculate_two_phase_vle_flash(
     max_outer = 30 if eos.upper() in ('PR', 'SRK') else 1
     
     for outer_step in range(max_outer):
-        f_min = rachford_rice(0.0)
-        f_max = rachford_rice(1.0)
+        # Phase check only on first iteration (Wilson K-values)
+        if outer_step == 0:
+            f_min = rachford_rice(0.0)
+            f_max = rachford_rice(1.0)
+            if f_min <= 0:
+                v_frac = 0.0
+            elif f_max >= 0:
+                v_frac = 1.0
+            else:
+                v_frac = max(0.001, min(0.999, v_frac))
+        elif v_frac <= 0.0 or v_frac >= 1.0:
+            break
 
-        if f_min <= 0:
-            v_frac = 0.0
-        elif f_max >= 0:
-            v_frac = 1.0
-        else:
+        if 0.0 < v_frac < 1.0:
             # Fast Bisection-bounded Newton-Raphson Solver
             v_low = 0.0
             v_high = 1.0
-            v_frac = max(0.001, min(0.999, v_frac))
             
             for _ in range(30):
                 f_val = rachford_rice(v_frac)
                 if abs(f_val) < 1e-7:
                     break
                 
-                # Update bisection bounds
                 if f_val > 0:
                     v_low = v_frac
                 else:
@@ -409,7 +413,7 @@ def calculate_two_phase_vle_flash(
                     if v_low < v_next < v_high:
                         v_frac = v_next
                     else:
-                        v_frac = 0.5 * (v_low + v_high) # True bisection step
+                        v_frac = 0.5 * (v_low + v_high)
                 else:
                     v_frac = 0.5 * (v_low + v_high)
 
