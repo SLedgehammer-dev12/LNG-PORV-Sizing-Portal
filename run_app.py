@@ -11,6 +11,7 @@ import streamlit.web.cli as stcli
 # Explicit imports to force PyInstaller static analysis inclusion
 import app
 import lng_thermo
+import vle_thermo
 import psv_sizing
 import psv_database
 import report_generator
@@ -48,6 +49,8 @@ if __name__ == "__main__":
         app_path,
         "--global.developmentMode=false",
         "--server.headless=true",
+        "--server.address=127.0.0.1",
+        "--server.port=8501",
         "--browser.gatherUsageStats=false"
     ]
     

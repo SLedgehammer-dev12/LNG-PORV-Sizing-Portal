@@ -48,8 +48,8 @@ def test_api520_subcritical_orifice_area():
         k=1.31
     )
     assert res['is_subcritical'] == True
-    # Area around 154,500 mm2 per valve
-    assert res['A_o_mm2'] > 140000.0 and res['A_o_mm2'] < 170000.0
+    # Area per valve around ~45,337 mm2 (total for 3 valves = ~136,000 mm2)
+    assert res['A_o_mm2'] > 40000.0 and res['A_o_mm2'] < 55000.0
 
 def test_psv_database_matching():
     matched = search_matching_valves(req_orifice_area_mm2=154500.0, required_air_capacity_m3_h=26419.5, P1_kPa_a=117.003)
@@ -95,11 +95,29 @@ def test_psv_database_frozen_path(tmp_path, monkeypatch):
     assert len(db_items) == 1
     assert db_items[0]["manufacturer"] == "TestCorp"
 
+def test_peng_robinson_and_srk_vle_flash():
+    """ Test Peng-Robinson (PR) and SRK EOS Z-factor, dynamic k_mix(T,P), and Rachford-Rice VLE Flash calculations. """
+    from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties
+    
+    sample_comp = {'CH4': 90.0, 'C2H6': 5.0, 'C3H8': 3.0, 'N2': 2.0}
+    
+    # 1. PR EOS Test
+    pr_res = calculate_two_phase_vle_flash(sample_comp, temperature_k=118.15, pressure_kPa_a=117.0, eos='PR')
+    assert 0.90 < pr_res['Z_gas'] < 1.0, f"PR Z_gas should be ~0.96, got {pr_res['Z_gas']}"
+    assert 1.25 < pr_res['k_mix'] < 1.55, f"Dynamic k_mix at 118K should be ~1.46, got {pr_res['k_mix']}"
+    assert pr_res['rho_v_kg_m3'] > 1.5, "Vapor density should be > 1.5 kg/m3"
+    
+    # 2. SRK EOS Test
+    srk_res = calculate_two_phase_vle_flash(sample_comp, temperature_k=118.15, pressure_kPa_a=117.0, eos='SRK')
+    assert 0.90 < srk_res['Z_gas'] < 1.0, f"SRK Z_gas should be ~0.96, got {srk_res['Z_gas']}"
+    assert 1.25 < srk_res['k_mix'] < 1.55, f"SRK dynamic k_mix should be ~1.46, got {srk_res['k_mix']}"
+
 def test_module_imports_for_executability():
     """ Verify all application modules import cleanly for PyInstaller packaging. """
     import run_app
     import app
     import lng_thermo
+    import vle_thermo
     import psv_sizing
     import psv_database
     import report_generator
@@ -108,6 +126,7 @@ def test_module_imports_for_executability():
     assert hasattr(run_app, 'resolve_path')
     assert hasattr(app, 'st')
     assert hasattr(lng_thermo, 'calculate_costald_density')
+    assert hasattr(vle_thermo, 'calculate_two_phase_vle_flash')
     assert hasattr(psv_sizing, 'calculate_api520_subcritical_orifice_area')
     assert hasattr(psv_database, 'search_matching_valves')
     assert hasattr(report_generator, 'generate_html_report')

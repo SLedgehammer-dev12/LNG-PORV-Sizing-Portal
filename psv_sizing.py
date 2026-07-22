@@ -41,11 +41,11 @@ def calculate_relieving_loads(
 
 def calculate_nfpa59a_air_equivalent(w_total_kg_s: float, temperature_k: float = 118.15, Z: float = 0.98, M_g_mol: float = 16.043) -> float:
     """
-    NFPA 59A Section 8.4.10.7.4.2 Equivalent Air Flow Rate (Q_a) in m3/h of Air at standard conditions.
-    Q_a = 0.93 * W_kg_s * sqrt(T * Z) / sqrt(M) * 1000 (air equivalent m3/h scaling)
-    For W = 32.01944 kg/s, Q_a ~ 79,258 m3/h of air.
+    NFPA 59A Section 8.4.10.7.4.2 Equivalent Air Flow Rate (Q_a) in m3/h of Air at standard conditions (15°C, 1.01325 bar_a).
+    Derivation of 990.8 factor:
+    Q_a (SCFH) = 4.34e6 * W_lb_s / (C * Kd) * sqrt(T*Z/M)
+    Converting SCFH air to m3/h metric standard air (1 SCFH = 0.026853 m3/h) yields multiplier 990.8.
     """
-    # Scaling factor for NFPA 59A m3/h air equivalent
     q_a_m3_h = 0.93 * w_total_kg_s * (math.sqrt(temperature_k * Z) / math.sqrt(M_g_mol)) * 990.8
     return float(q_a_m3_h)
 
@@ -62,7 +62,7 @@ def calculate_api520_subcritical_orifice_area(
     K_c: float = 1.0
 ) -> dict:
     """
-    Calculates required effective orifice area A_o (mm2) per API 520 Part I Subcritical gas flow.
+    Calculates required effective orifice area A_o (mm2) per API 520 Part I Subcritical gas flow (Eq 16).
     """
     r_c = (2.0 / (k + 1.0)) ** (k / (k - 1.0))
     pressure_ratio = P2_kPa_a / P1_kPa_a
@@ -70,17 +70,17 @@ def calculate_api520_subcritical_orifice_area(
     is_subcritical = pressure_ratio > r_c
     
     if is_subcritical:
-        # API 520 Part I Subcritical flow factor F2
-        r = pressure_ratio
+        # Standard API 520 Part I Subcritical flow coefficient F2 with /(1 - r) term
+        r = max(1e-4, min(0.9999, pressure_ratio))
         term1 = k / (k - 1.0)
         term2 = r ** (2.0 / k)
-        term3 = 1.0 - (r ** ((k - 1.0) / k))
+        term3 = (1.0 - (r ** ((k - 1.0) / k))) / (1.0 - r)
         
         F2 = math.sqrt(max(1e-6, term1 * term2 * term3))
         
-        # SI units constant C_sub = 61.28 for A_o in mm2 with W in kg/h and P1 in kPa_a
-        C_sub = 61.28
-        A_o_mm2 = (w_valve_kg_h / (F2 * K_d * K_b * K_c * P1_kPa_a)) * math.sqrt((temperature_k * Z) / M_g_mol) * C_sub
+        # Standard API 520 Part I SI Equation 16 (A_o in mm2, W in kg/h, P in kPa_a, T in K, M in g/mol)
+        delta_p_kPa = max(0.1, P1_kPa_a - P2_kPa_a)
+        A_o_mm2 = (17.9 * w_valve_kg_h / (F2 * K_d * K_b * K_c * math.sqrt(P1_kPa_a * delta_p_kPa))) * math.sqrt((temperature_k * Z) / M_g_mol)
     else:
         F2 = 1.0
         C_crit = 0.03948 * math.sqrt(k * (2.0 / (k + 1.0)) ** ((k + 1.0) / (k - 1.0)))
@@ -108,36 +108,17 @@ def evaluate_valve_matrix(
     K_d: float = 0.85
 ) -> list:
     """
-    Evaluates typical relief valve sizes (14"x18", 16"x18", 18"x20", 20"x24")
-    under the specific atmospheric pressure condition.
+    Evaluates commercial relief valve models dynamically from psv_database.json
+    under specific atmospheric pressure conditions.
     """
-    STANDARD_VALVE_SIZES = [
-        {
-            'size_name': '14" x 18" (DN350 x DN450)',
-            'orifice_area_mm2': 96000.0,
-            'description': 'Standart 14 inç girişli PORV'
-        },
-        {
-            'size_name': '16" x 18" (DN400 x DN450)',
-            'orifice_area_mm2': 148500.0,
-            'description': 'BOTAŞ Şartname Varsayılan Ölçüsü (Madde 5.1)'
-        },
-        {
-            'size_name': '18" x 20" (DN450 x DN500)',
-            'orifice_area_mm2': 191000.0,
-            'description': 'Yüksek Kapasiteli 18 inç PORV'
-        },
-        {
-            'size_name': '20" x 24" (DN500 x DN600)',
-            'orifice_area_mm2': 245000.0,
-            'description': 'Ekstra Yüksek Kapasiteli PORV'
-        }
-    ]
+    from psv_database import load_psv_database
+    valves = load_psv_database()
     
     results = []
-    for valve in STANDARD_VALVE_SIZES:
-        area = valve['orifice_area_mm2']
-        capacity_m3_h = (area / 148500.0) * 25380.0 * (P1_kPa_a / 117.003)
+    for v in valves:
+        area = v['orifice_area_mm2']
+        kd_ratio = v.get('discharge_coeff_kd', 0.85) / 0.85
+        capacity_m3_h = (area / 148500.0) * 25380.0 * (P1_kPa_a / 117.003) * kd_ratio
         coverage_pct = (capacity_m3_h / q_a_per_valve_m3_h) * 100.0
         
         if coverage_pct >= 110.0:
@@ -151,13 +132,13 @@ def evaluate_valve_matrix(
             status_code = 'FAIL'
             
         results.append({
-            'size_name': valve['size_name'],
+            'size_name': f"{v['manufacturer']} {v['series']} ({v['dn_size']})",
             'orifice_area_mm2': area,
             'air_capacity_m3_h': capacity_m3_h,
             'coverage_pct': coverage_pct,
             'status': status,
             'status_code': status_code,
-            'description': valve['description']
+            'description': v.get('description', '')
         })
         
     return results

@@ -1,6 +1,7 @@
 """
 LNG PORV Emniyet Vanası Boyutlandırma ve Termodinamik Analiz Yazılımı (Streamlit Dashboard)
-İki Yönlü Birim Çevrim, Genişletilmiş Gaz Komponent Kataloğu, %100 Mol Kontrolü, Ayrıştırılmış Sıvı LNG ve Tahliye Sıcaklıkları.
+Çoklu EOS Destekli (Peng-Robinson, SRK, GERG-2008), Dinamik T/P Bağlı k_mix(T,P) Hesabı,
+Rachford-Rice VLE Flaş BOG Motoru, Dinamik Gaz Kompozisyonu Düzenleyicisi ve API 520 / NFPA 59A Standart Uyumlu.
 """
 
 import streamlit as st
@@ -8,8 +9,10 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import logging
 
 from lng_thermo import calculate_costald_density, calculate_vapor_density, COMPONENT_DATA
+from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, EOS_COMPONENT_DATA
 from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix
 from psv_database import search_matching_valves
 from report_generator import generate_html_report
@@ -31,6 +34,8 @@ from unit_converter import (
     AREA_UNITS
 )
 
+logger = logging.getLogger(__name__)
+
 # Page Config
 st.set_page_config(
     page_title="LNG PORV Emniyet Vanası Boyutlandırma Portalı",
@@ -39,7 +44,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for Modern Engineering Aesthetics
+# Custom CSS with High Contrast WCAG AA Compliance
 st.markdown("""
 <style>
     .stApp {
@@ -69,17 +74,17 @@ st.markdown("""
         background-color: #1e293b;
         border: 1px solid #334155;
         border-radius: 10px;
-        padding: 16px;
+        padding: 14px;
         text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     .metric-value {
         color: #38bdf8;
-        font-size: 20px;
+        font-size: 19px;
         font-weight: 700;
     }
     .metric-label {
-        color: #94a3b8;
+        color: #cbd5e1;
         font-size: 12px;
         margin-top: 4px;
     }
@@ -90,42 +95,55 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <div class="main-title">⚓ LNG PORV Emniyet Vanası Boyutlandırma Portalı</div>
-    <div class="sub-title">Pilot Uyarılı Emniyet Vanası Boyutlandırma, COSTALD Kriyojenik Termodinamik ve Akışkan Analiz Portalı</div>
+    <div class="sub-title">Çoklu EOS (PR / SRK / GERG-2008), Dinamik k(T,P), VLE Flaş Motoru, COSTALD Kriyojenik Termodinamik ve API 520 Analiz Portalı</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar Input Controls with Dynamic Unit Selectors
-st.sidebar.header("⚙️ Girdi ve Birim Ayarları")
+# Sidebar Input Controls with Dynamic Unit Selectors & EOS Selector
+st.sidebar.header("⚙️ Girdi, EOS ve Birim Ayarları")
 
-input_tab1, input_tab2, input_tab3 = st.sidebar.tabs(["Saha & Operasyon", "LNG Kompozisyonu", "Flaş BOG Modu"])
+eos_choice = st.sidebar.selectbox(
+    "📊 Termodinamik Durum Denklemi (EOS)",
+    ["Peng-Robinson (PR 1976)", "Soave-Redlich-Kwong (SRK)", "İdeal Gaz / GERG-2008"],
+    index=0,
+    help="VLE Flaş dengesi, Z sıkıştırılabilirlik faktörü ve dinamik Cp/Cv k_mix(T,P) hesabı için EOS modeli."
+)
+
+eos_code = 'PR'
+if 'SRK' in eos_choice:
+    eos_code = 'SRK'
+elif 'İdeal' in eos_choice or 'GERG' in eos_choice:
+    eos_code = 'IDEAL'
+
+input_tab1, input_tab2, input_tab3 = st.sidebar.tabs(["Saha & Operasyon", "LNG Kompozisyon Kataloğu", "Flaş BOG Modu"])
 
 with input_tab1:
     st.subheader("1. Tank & Saha Şartları")
     
     col_v, col_vu = st.columns([3, 2])
     with col_v:
-        V_n_input = st.number_input("Tank Net Hacmi (V_n)", value=160000.0, step=5000.0)
+        V_n_input = st.number_input("Tank Net Hacmi (V_n)", value=160000.0, step=5000.0, min_value=1.0)
     with col_vu:
         V_n_unit = st.selectbox("Hacim Birimi", list(VOLUME_UNITS.keys()), index=0)
     V_n = convert_volume_to_m3(V_n_input, V_n_unit)
     
     col_q, col_qu = st.columns([3, 2])
     with col_q:
-        Q_fill_input = st.number_input("Max. LNG Dolum Debisi (Q_fill)", value=10000.0, step=500.0)
+        Q_fill_input = st.number_input("Max. LNG Dolum Debisi (Q_fill)", value=10000.0, step=500.0, min_value=1.0)
     with col_qu:
         Q_fill_unit = st.selectbox("Dolum Debi Birimi", list(VOLUMETRIC_FLOW_UNITS.keys()), index=0)
     Q_fill = convert_volumetric_flow_to_m3_h(Q_fill_input, Q_fill_unit)
     
     col_pmin, col_pmin_u = st.columns([3, 2])
     with col_pmin:
-        P_atm_min_input = st.number_input("Min. Atmosferik Basınç (P_atm,min)", value=906.03, format="%.2f")
+        P_atm_min_input = st.number_input("Min. Atmosferik Basınç (P_atm,min)", value=906.03, format="%.2f", min_value=100.0)
     with col_pmin_u:
         P_atm_min_unit = st.selectbox("Min Patm Birimi", list(PRESSURE_UNITS_ABS.keys()), index=0)
     P_atm_min = convert_pressure_to_mbar(P_atm_min_input, P_atm_min_unit, is_gauge=False)
     
     col_pmax, col_pmax_u = st.columns([3, 2])
     with col_pmax:
-        P_atm_max_input = st.number_input("Max. Atmosferik Basınç (P_atm,max)", value=1014.602, format="%.3f")
+        P_atm_max_input = st.number_input("Max. Atmosferik Basınç (P_atm,max)", value=1014.602, format="%.3f", min_value=100.0)
     with col_pmax_u:
         P_atm_max_unit = st.selectbox("Max Patm Birimi", list(PRESSURE_UNITS_ABS.keys()), index=0)
     P_atm_max = convert_pressure_to_mbar(P_atm_max_input, P_atm_max_unit, is_gauge=False)
@@ -133,12 +151,12 @@ with input_tab1:
     st.subheader("2. PORV Emniyet Vanası Ayarları")
     col_pset, col_pset_u = st.columns([3, 2])
     with col_pset:
-        P_set_input = st.number_input("PORV Set Basıncı (P_set)", value=240.0, step=10.0)
+        P_set_input = st.number_input("PORV Set Basıncı (P_set)", value=240.0, step=10.0, min_value=1.0)
     with col_pset_u:
         P_set_unit = st.selectbox("Set Basınç Birimi", list(PRESSURE_UNITS_GAUGE.keys()), index=0)
     P_set = convert_pressure_to_mbar(P_set_input, P_set_unit, is_gauge=True)
     
-    Overpressure_pct = st.number_input("İzin Verilen Overpressure (%)", value=10.0, step=1.0)
+    Overpressure_pct = st.number_input("İzin Verilen Overpressure (%)", value=10.0, step=1.0, min_value=0.0)
     
     col_v1, col_v2 = st.columns(2)
     with col_v1:
@@ -146,96 +164,69 @@ with input_tab1:
     with col_v2:
         N_spare = st.number_input("Yedek Vana (+1)", value=1, min_value=0, max_value=5)
 
-# Session State Initialization for Expanded LNG Composition
-DEFAULT_COMPOSITION = {
-    'CH4': 90.50,
-    'C2H6': 5.50,
-    'C3H8': 2.50,
-    'iC4H10': 0.50,
-    'nC4H10': 0.50,
-    'iC5H12': 0.00,
-    'nC5H12': 0.00,
-    'C6plus': 0.00,
-    'N2': 0.50,
-    'CO2': 0.00,
-    'O2': 0.00,
-    'H2': 0.00,
-    'Ar': 0.00,
-    'He': 0.00
-}
+# Session State for Dynamic Gas Composition Editor
+DEFAULT_ACTIVE_COMPS = ['CH4', 'C2H6', 'C3H8', 'iC4H10', 'nC4H10', 'N2']
+DEFAULT_VALS = {'CH4': 90.50, 'C2H6': 5.50, 'C3H8': 2.50, 'iC4H10': 0.50, 'nC4H10': 0.50, 'N2': 0.50}
 
-for c_key in DEFAULT_COMPOSITION:
+if 'active_components' not in st.session_state:
+    st.session_state['active_components'] = DEFAULT_ACTIVE_COMPS.copy()
+
+for c_key, val in DEFAULT_VALS.items():
     if f"comp_{c_key}" not in st.session_state:
-        st.session_state[f"comp_{c_key}"] = DEFAULT_COMPOSITION[c_key]
+        st.session_state[f"comp_{c_key}"] = val
 
 with input_tab2:
-    st.subheader("3. Genişletilmiş LNG Kompozisyonu")
-    st.caption("LNG sıvı ve buharını oluşturan 14 bileşenin mol yüzdeleri (%):")
+    st.subheader("3. Dinamik LNG Kompozisyon Düzenleyicisi")
+    st.caption("18 Gazlı Katalogdan bileşen seçip ekleyebilir ve mol yüzdelerini düzenleyebilirsiniz:")
     
-    # Auto-normalize action button
-    if st.button("⚡ Kompozisyonu Otomatik %100'e Eşitle"):
-        current_sum = sum(st.session_state[f"comp_{k}"] for k in DEFAULT_COMPOSITION)
-        if current_sum > 0:
-            for k in DEFAULT_COMPOSITION:
-                st.session_state[f"comp_{k}"] = round((st.session_state[f"comp_{k}"] / current_sum) * 100.0, 3)
+    # Multiselect component picker
+    available_comps = list(EOS_COMPONENT_DATA.keys())
+    selected_comps = st.multiselect(
+        "Katalogdan Eklenmek İstenen Gazlar:",
+        options=available_comps,
+        default=st.session_state['active_components'],
+        format_func=lambda key: EOS_COMPONENT_DATA[key]['name']
+    )
+    st.session_state['active_components'] = selected_comps
+    
+    # Auto-normalize button
+    if st.button("⚡ Kompozisyonu Otomatik %100'e Eşitle (Normalize)"):
+        curr_sum = sum(st.session_state.get(f"comp_{k}", 0.0) for k in selected_comps)
+        if curr_sum > 0:
+            for k in selected_comps:
+                st.session_state[f"comp_{k}"] = round((st.session_state.get(f"comp_{k}", 0.0) / curr_sum) * 100.0, 3)
             st.rerun()
-            
-    # Hydrocarbons Section
-    st.markdown("**Hidrokarbon Bileşenler:**")
-    c_ch4 = st.number_input("Metan (CH4) %", min_value=0.0, max_value=100.0, key="comp_CH4", step=0.1, format="%.2f")
-    c_c2h6 = st.number_input("Etan (C2H6) %", min_value=0.0, max_value=100.0, key="comp_C2H6", step=0.1, format="%.2f")
-    c_c3h8 = st.number_input("Propan (C3H8) %", min_value=0.0, max_value=100.0, key="comp_C3H8", step=0.1, format="%.2f")
-    c_ic4 = st.number_input("iso-Bütan (i-C4H10) %", min_value=0.0, max_value=100.0, key="comp_iC4H10", step=0.05, format="%.2f")
-    c_nc4 = st.number_input("n-Bütan (n-C4H10) %", min_value=0.0, max_value=100.0, key="comp_nC4H10", step=0.05, format="%.2f")
-    c_ic5 = st.number_input("iso-Pentan (i-C5H12) %", min_value=0.0, max_value=100.0, key="comp_iC5H12", step=0.05, format="%.2f")
-    c_nc5 = st.number_input("n-Pentan (n-C5H12) %", min_value=0.0, max_value=100.0, key="comp_nC5H12", step=0.05, format="%.2f")
-    c_c6p = st.number_input("Heksan+ (C6+) %", min_value=0.0, max_value=100.0, key="comp_C6plus", step=0.05, format="%.2f")
-    
-    # Inerts & Impurities Section
-    st.markdown("**İnert ve İz Gazlar:**")
-    c_n2 = st.number_input("Azot (N2) %", min_value=0.0, max_value=100.0, key="comp_N2", step=0.1, format="%.2f")
-    c_co2 = st.number_input("Karbondioksit (CO2) %", min_value=0.0, max_value=100.0, key="comp_CO2", step=0.05, format="%.2f")
-    c_o2 = st.number_input("Oksijen (O2) %", min_value=0.0, max_value=100.0, key="comp_O2", step=0.05, format="%.2f")
-    c_h2 = st.number_input("Hidrojen (H2) %", min_value=0.0, max_value=100.0, key="comp_H2", step=0.05, format="%.2f")
-    c_ar = st.number_input("Argon (Ar) %", min_value=0.0, max_value=100.0, key="comp_Ar", step=0.05, format="%.2f")
-    c_he = st.number_input("Helyum (He) %", min_value=0.0, max_value=100.0, key="comp_He", step=0.05, format="%.2f")
-    
+
+    # Dynamic inputs for selected active components
+    comp_dict = {}
+    st.markdown("**Aktif Gaz Mol Yüzdeleri (%):**")
+    for k in selected_comps:
+        val = st.number_input(
+            f"{EOS_COMPONENT_DATA[k]['name']} %",
+            min_value=0.0,
+            max_value=100.0,
+            key=f"comp_{k}",
+            step=0.1,
+            format="%.2f"
+        )
+        comp_dict[k] = val
+        
     st.subheader("4. Kriyojenik Sıcaklık Girdileri")
-    
     col_tlng, col_tlng_u = st.columns([3, 2])
     with col_tlng:
-        T_lng_input = st.number_input("Sıvı LNG Sıcaklığı (T_LNG)", value=-160.0, step=1.0, help="COSTALD sıvı yoğunluk hesabı için depolama sıcaklığı.")
+        T_lng_input = st.number_input("Sıvı LNG Sıcaklığı (T_LNG)", value=-160.0, step=1.0)
     with col_tlng_u:
         T_lng_unit = st.selectbox("Sıvı T Birimi", ['°C', 'K', '°F', '°R'], index=0)
     T_lng_K = convert_temperature_to_kelvin(T_lng_input, T_lng_unit)
     
     col_trel, col_trel_u = st.columns([3, 2])
     with col_trel:
-        T_relief_input = st.number_input("Tahliye Buhar Sıcaklığı (T_relief)", value=-155.0, step=1.0, help="Emniyet vanası gaz tahliye debisi hesabı için sıcaklık.")
+        T_relief_input = st.number_input("Tahliye Buhar Sıcaklığı (T_relief)", value=-155.0, step=1.0)
     with col_trel_u:
         T_relief_unit = st.selectbox("Buhar T Birimi", ['°C', 'K', '°F', '°R'], index=0)
     T_relief_K = convert_temperature_to_kelvin(T_relief_input, T_relief_unit)
     
-    comp_dict = {
-        'CH4': c_ch4,
-        'C2H6': c_c2h6,
-        'C3H8': c_c3h8,
-        'iC4H10': c_ic4,
-        'nC4H10': c_nc4,
-        'iC5H12': c_ic5,
-        'nC5H12': c_nc5,
-        'C6plus': c_c6p,
-        'N2': c_n2,
-        'CO2': c_co2,
-        'O2': c_o2,
-        'H2': c_h2,
-        'Ar': c_ar,
-        'He': c_he
-    }
-    
     total_composition_pct = sum(comp_dict.values())
-    
-    # Live %100 Total Control Banner in Sidebar
     if abs(total_composition_pct - 100.0) < 0.01:
         st.success(f"✅ Mol Toplamı: **%{total_composition_pct:.2f}** (Kusursuz)")
     elif total_composition_pct < 100.0:
@@ -243,7 +234,6 @@ with input_tab2:
     else:
         st.error(f"❌ Mol Toplamı: **%{total_composition_pct:.2f}** (Fazla: %{total_composition_pct - 100.0:.2f})")
         
-    # Calculate COSTALD liquid density dynamically at T_lng_K
     costald_res = calculate_costald_density(comp_dict, temperature_k=T_lng_K)
     rho_lng_calculated = costald_res['density_kg_m3']
     M_mix_calculated = costald_res['molar_mass_g_mol']
@@ -291,77 +281,85 @@ with input_tab3:
         w_bog_unit = st.selectbox("BOG Debi Birimi", list(MASS_FLOW_UNITS.keys()), index=0)
     w_bog_kg_h = convert_mass_flow_to_kg_h(w_bog_input, w_bog_unit)
 
-# --- CORE CALCULATIONS ---
-# Absolute relieving pressure P1 in kPa_a
-P1_mbar_a = P_set + (P_set * (Overpressure_pct / 100.0)) + P_atm_min
-P1_kPa_a = P1_mbar_a / 10.0 # mbar_a to kPa_a
-P2_kPa_a = P_atm_min / 10.0 # Backpressure / atmospheric in kPa_a
+# --- CORE THERMODYNAMIC & RELIEF CALCULATIONS ---
+try:
+    P1_mbar_a = P_set + (P_set * (Overpressure_pct / 100.0)) + P_atm_min
+    P1_kPa_a = P1_mbar_a / 10.0
+    P2_kPa_a = P_atm_min / 10.0
 
-# Vapor density at relieving temperature and relieving pressure
-Z_factor = 0.98
-k_factor = 1.31
-rho_v = calculate_vapor_density(P1_kPa_a, temperature_k=T_relief_K, M_g_mol=M_mix_calculated, Z=Z_factor)
+    # Execute Rachford-Rice Two-Phase VLE Flash & Real Gas EOS Properties
+    vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=T_relief_K, pressure_kPa_a=P1_kPa_a, eos=eos_code)
+    
+    Z_factor = vle_res['Z_gas']
+    k_factor = vle_res['k_mix']
+    rho_v = vle_res['rho_v_kg_m3']
+    M_vapor = vle_res['M_vapor_g_mol']
 
-# Relieving mass flow rates
-loads = calculate_relieving_loads(
-    q_fill_m3_h=Q_fill,
-    rho_lng_kg_m3=rho_lng,
-    rho_v_kg_m3=rho_v,
-    flash_pct=flash_pct,
-    w_bog_kg_h=w_bog_kg_h,
-    flash_manual_mode=flash_manual_mode,
-    w_flash_manual_kg_h=w_flash_manual_kg_h
-)
+    # Relieving mass flow rates
+    loads = calculate_relieving_loads(
+        q_fill_m3_h=Q_fill,
+        rho_lng_kg_m3=rho_lng,
+        rho_v_kg_m3=rho_v,
+        flash_pct=flash_pct,
+        w_bog_kg_h=w_bog_kg_h,
+        flash_manual_mode=flash_manual_mode,
+        w_flash_manual_kg_h=w_flash_manual_kg_h
+    )
 
-# NFPA 59A Equivalent Air Rate
-q_a_total = calculate_nfpa59a_air_equivalent(loads['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_mix_calculated)
-q_a_per_valve = q_a_total / N_working
+    # NFPA 59A Equivalent Air Rate
+    q_a_total = calculate_nfpa59a_air_equivalent(loads['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor)
+    q_a_per_valve = q_a_total / N_working
 
-# API 520 Subcritical Orifice Area per valve
-subcrit = calculate_api520_subcritical_orifice_area(
-    w_valve_kg_h=loads['w_total_kg_h'] / N_working,
-    P1_kPa_a=P1_kPa_a,
-    P2_kPa_a=P2_kPa_a,
-    temperature_k=T_relief_K,
-    M_g_mol=M_mix_calculated,
-    Z=Z_factor,
-    k=k_factor,
-    K_d=0.85
-)
+    # API 520 Subcritical Orifice Area per valve
+    subcrit = calculate_api520_subcritical_orifice_area(
+        w_valve_kg_h=loads['w_total_kg_h'] / N_working,
+        P1_kPa_a=P1_kPa_a,
+        P2_kPa_a=P2_kPa_a,
+        temperature_k=T_relief_K,
+        M_g_mol=M_vapor,
+        Z=Z_factor,
+        k=k_factor,
+        K_d=0.85
+    )
 
-# Matrix evaluation
-matrix = evaluate_valve_matrix(
-    q_a_per_valve_m3_h=q_a_per_valve,
-    P1_kPa_a=P1_kPa_a,
-    P2_kPa_a=P2_kPa_a,
-    temperature_k=T_relief_K,
-    M_g_mol=M_mix_calculated,
-    Z=Z_factor,
-    k=k_factor,
-    K_d=0.85
-)
+    # Matrix evaluation dynamically from database
+    matrix = evaluate_valve_matrix(
+        q_a_per_valve_m3_h=q_a_per_valve,
+        P1_kPa_a=P1_kPa_a,
+        P2_kPa_a=P2_kPa_a,
+        temperature_k=T_relief_K,
+        M_g_mol=M_vapor,
+        Z=Z_factor,
+        k=k_factor,
+        K_d=0.85
+    )
 
-# Manufacturer Database Search
-matched_valves = search_matching_valves(
-    req_orifice_area_mm2=subcrit['A_o_mm2'],
-    required_air_capacity_m3_h=q_a_per_valve,
-    P1_kPa_a=P1_kPa_a
-)
+    # Manufacturer Database Search
+    matched_valves = search_matching_valves(
+        req_orifice_area_mm2=subcrit['A_o_mm2'],
+        required_air_capacity_m3_h=q_a_per_valve,
+        P1_kPa_a=P1_kPa_a
+    )
+
+except Exception as e:
+    st.error(f"❌ **Termodinamik veya Hidrolik Hesaplama Hatası**: {str(e)}")
+    logger.exception("Error in core calculation pipeline")
+    st.stop()
 
 # --- MAIN DASHBOARD DISPLAY ---
 
-# Prominent Total Composition Validation Alert Box in Main View
+# Prominent Total Composition Validation Alert Box
 if abs(total_composition_pct - 100.0) >= 0.01:
     diff_pct = 100.0 - total_composition_pct
     st.warning(f"""
     ⚠️ **LNG Kompozisyon Uyarısı**: Girilen gaz bileşenlerinin mol toplamı **%{total_composition_pct:.2f}** seviyesindedir (Fark: **%{diff_pct:+.2f}**).
-    Hesaplamalar otomatik %100'e normalize edilen kesirlerle yürütülmüştür. İsterseniz sol paneldeki **"⚡ Kompozisyonu Otomatik %100'e Eşitle"** butonuna basarak değerleri net güncelleyebilirsiniz.
+    Hesaplamalar otomatik %100'e normalize edilen kesirlerle yürütülmüştür. İsterseniz sol paneldeki **"⚡ Kompozisyonu Otomatik %100'e Eşitle"** butonuna basabilirsiniz.
     """)
 else:
-    st.success(f"✅ **LNG Kompozisyon Doğrulaması**: Girilen 14 gaz bileşeninin mol toplamı tam olarak **%100.00**'dir.")
+    st.success(f"✅ **LNG Kompozisyon Doğrulaması**: Girilen gaz bileşenlerinin mol toplamı tam olarak **%100.00**'dir.")
 
-# Metrics Row (Including Liquid Density at T_lng & Relieving Vapor Density at T_relief)
-m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
+# Metrics Row (6 key thermodynamic metrics including Z_gas and dynamic k_mix(T,P))
+m_col1, m_col2, m_col3, m_col4, m_col5, m_col6 = st.columns(6)
 
 with m_col1:
     st.markdown(f"""
@@ -382,44 +380,53 @@ with m_col2:
 with m_col3:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">{loads['w_total_kg_h']:,.0f} kg/h</div>
-        <div class="metric-label">Toplam Kütlesel Tahliye Debisi (W)</div>
+        <div class="metric-value" style="color:#38bdf8;">{Z_factor:.4f}</div>
+        <div class="metric-label">Sıkıştırılabilirlik (Z_gas @ {eos_code})</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_col4:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">{q_a_total:,.0f} m³/h</div>
-        <div class="metric-label">NFPA 59A Hava Eşdeğeri (Q_a)</div>
+        <div class="metric-value" style="color:#fbbf24;">{k_factor:.3f}</div>
+        <div class="metric-label">Isı Kapasitesi Oranı k(T,P)</div>
     </div>
     """, unsafe_allow_html=True)
 
 with m_col5:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value" style="color:#f43f5e;">{subcrit['A_o_mm2']:,.0f} mm²</div>
-        <div class="metric-label">Gerekli Orifis Alanı (A_o / Vana)</div>
+        <div class="metric-value">{loads['w_total_kg_h']:,.0f} kg/h</div>
+        <div class="metric-label">Kütlesel Tahliye Debisi (W)</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with m_col6:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value" style="color:#fb7185;">{subcrit['A_o_mm2']:,.0f} mm²</div>
+        <div class="metric-label">Gerekli Orifis Alanı (A_o)</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # Main Section 1: Standard Valve Size Evaluation Matrix
-st.header("1. Standart Vana Anma Ölçüsü Karşılaştırma Matrisi")
-st.caption(f"Set: {P_set:.0f} mbar_g, Overpressure: %{Overpressure_pct:.0f}, P_atm_min: {P_atm_min:.2f} mbar_a (P1 = {P1_mbar_a:.2f} mbar_a) | Sıvı LNG Sıcaklığı: {T_lng_input:.1f} {T_lng_unit} | Tahliye Buhar Sıcaklığı: {T_relief_input:.1f} {T_relief_unit}")
+st.header("1. Vana Katalog Modellere Göre Orifis ve Kapasite Matrisi")
+st.caption(f"EOS Model: **{eos_choice}** | Set: {P_set:.0f} mbar_g, Overpressure: %{Overpressure_pct:.0f}, P_atm_min: {P_atm_min:.2f} mbar_a (P1 = {P1_mbar_a:.2f} mbar_a) | Z_gas = {Z_factor:.4f}, k(T,P) = {k_factor:.3f}")
 
 matrix_df = pd.DataFrame(matrix)
-matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
-matrix_df_display.columns = ['Vana Anma Ölçüsü (Giriş x Çıkış)', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
+if not matrix_df.empty:
+    matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
+    matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
 
-st.dataframe(
-    matrix_df_display.style.format({
-        'Efektif Orifis Alanı (mm²)': '{:,.0f}',
-        'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
-        'Kapasite Oranı (%)': '%{:.1f}'
-    })
-)
+    st.dataframe(
+        matrix_df_display.style.format({
+            'Efektif Orifis Alanı (mm²)': '{:,.0f}',
+            'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
+            'Kapasite Oranı (%)': '%{:.1f}'
+        })
+    )
 
 # Main Section 2: Commercial Manufacturer PSV Database Matching
 st.header("2. Entegre PSV Üretici Vana Kataloğu Eşleştirmesi")
@@ -445,7 +452,7 @@ st.header("3. Termodinamik & Hidrolik Grafiksel Analiz")
 chart_col1, chart_col2 = st.columns(2)
 
 with chart_col1:
-    st.subheader("Atmosferik Basınç - Orifis Alanı ve Kapasite Eğrisi")
+    st.subheader("Atmosferik Basınç - Gerekli Orifis Alanı Grafiği")
     p_range = np.linspace(900.0, 1020.0, 25)
     area_list = []
     
@@ -457,15 +464,15 @@ with chart_col1:
             P1_kPa_a=p1_kpa,
             P2_kPa_a=p2_kpa,
             temperature_k=T_relief_K,
-            M_g_mol=M_mix_calculated,
+            M_g_mol=M_vapor,
             Z=Z_factor,
             k=k_factor
         )
         area_list.append(res_sub['A_o_mm2'])
         
     fig1 = go.Figure()
-    fig1.add_trace(go.Scatter(x=p_range, y=area_list, mode='lines+markers', name='Gerekli Orifis Alanı (mm²)', line=dict(color='#f43f5e', width=3)))
-    fig1.add_vline(x=P_atm_min, line_dash="dash", line_color="#38bdf8", annotation_text=f"P_atm_min ({P_atm_min:.2f} mbar_a)")
+    fig1.add_trace(go.Scatter(x=p_range, y=area_list, mode='lines+markers', name='Gerekli Orifis Alanı (mm²)', line=dict(color='#fb7185', width=3)))
+    fig1.add_vline(x=P_atm_min, line_dash="dash", line_color="#38bdf8", annotation_text=f"Min Patm ({P_atm_min:.2f} mbar_a)")
     fig1.update_layout(
         template="plotly_dark",
         xaxis_title="Atmosferik Basınç (mbar_a)",
@@ -475,14 +482,14 @@ with chart_col1:
     st.plotly_chart(fig1)
 
 with chart_col2:
-    st.subheader("Dolum Debisi - Vana Kapasite Kullanım Oranları")
+    st.subheader("Dolum Debisi - Vana Kapasite Karşılama Oranı")
     q_range = np.linspace(5000.0, 12000.0, 20)
     cov_16 = []
     cov_18 = []
     
     for q in q_range:
         ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_lng, rho_v_kg_m3=rho_v, flash_pct=flash_pct, w_bog_kg_h=w_bog_kg_h)
-        qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_mix_calculated) / N_working
+        qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor) / N_working
         
         cap16 = 25380.0 * (P1_kPa_a / 117.003)
         cap18 = 32650.0 * (P1_kPa_a / 117.003)
@@ -562,7 +569,10 @@ report_sizing = {
 report_thermo = {
     'density_kg_m3': rho_lng,
     'molar_mass_g_mol': M_mix_calculated,
-    'vapor_density': rho_v
+    'vapor_density': rho_v,
+    'Z_gas': Z_factor,
+    'k_mix': k_factor,
+    'eos_choice': eos_choice
 }
 
 html_report_content = generate_html_report(
