@@ -21,14 +21,22 @@ Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motor
 - Sürekli `h_mix(T)` fonksiyonu: Bubble-point bölgesinde EOS fugacity bazlı VF refine ile VLE flash süreksizliği giderildi.
 
 ### 3. Yeni Kullanıcı Arayüzü Özellikleri
-- **Gemi Transfer Basıncı (P_ship)** girdisi — LNG gemisinin tanka transfer basıncı (varsayılan: 5 bar_g).
+- **Gemi Pompa Çıkış Basıncı (P_ship)** girdisi — LNG pompa çıkış basıncı (varsayılan: 5 bar_g). Boru hattı kayıpları izentalpik kabul edilir (konservatif).
 - **Flaş BOG Hesap Modu** seçeneğine "İzentalpik Flaş (PH-Flash, EOS)" eklendi.
+- **Ayrı Kargo Kompozisyonu** — "Kargo LNG Kompozisyonu Tanktakinden Farklı" checkbox'ı ile gemi kargosu için ayrı bileşen tablosu açılır. İzentalpik flaşta kargo kompozisyonu kullanılır, tank kompozisyonu VLE flash ve yoğunluk hesaplarında kalır.
 - İzentalpik flaş sonuçları metrik kartlarda ve detaylı formül sekmesinde görüntülenir:
   - Besleme entalpisi (h_feed, J/mol)
   - Flaş sıcaklığı (T_flash, K)
   - Buhar oranı (VF, % mol/mol) — küçük oranlar için yüksek hassasiyetli gösterim (%.4f)
 - **Dinamik Vana Öneri Paneli**: Artık vana önerileri veritabanındaki en küçük uygun vanadan başlayarak dinamik olarak hesaplanır. Girdi değişimlerinde otomatik yenilenir.
 - **Dinamik Dolum Debisi Grafiği**: Veritabanındaki en küçük 3 vana için kapasite karşılama eğrileri çizilir (sabit 16"x18"/18"x20" yerine).
+
+### 3b. Kargo Kompozisyonunun Flaşa Etkisi — Doğrulama (PR EOS)
+| Kargo CH₄ Oranı | Tank CH₄ Oranı | Flaş Oranı (VF) |
+|:---:|:---:|:---:|
+| %95.0 | %90.5 | **%1.34** (yüksek uçuculuk → daha fazla flaş) |
+| %90.5 | %90.5 | **%0.45** (aynı kompozisyon) |
+| %85.0 | %90.5 | **%0.12** (düşük uçuculuk → daha az flaş) |
 
 ### 4. Fiziksel Doğrulama — Tipik Senaryo Sonuçları (PR EOS)
 | Gemi Sıcaklığı | Gemi Basıncı | Tank Basıncı | Flaş Oranı (VF) |
