@@ -322,7 +322,8 @@ with input_tab3:
     st.subheader("5. Gemi Transfer Basıncı (İzentalpik Flaş İçin)")
     col_pship, col_pship_u = st.columns([3, 2])
     with col_pship:
-        P_ship_input = st.number_input("Gemi Transfer Basıncı (P_ship)", value=5.0, step=0.5, min_value=0.1, help="LNG gemisinin tanka transfer basıncı (tipik 4-8 bar_g)")
+        P_ship_input = st.number_input("Gemi Pompa Çıkış Basıncı (P_ship)", value=5.0, step=0.5, min_value=0.1,
+                                       help="Gemi pompa çıkış basıncı (tipik 4-8 bar_g). Boru hattı kayıpları + tank girişine kadar olan toplam basınç düşüşü izentalpik kabul edilir (konservatif). Gerçek flaş tank girişinde P_tank'a genleşmeyle oluşur.")
     with col_pship_u:
         P_ship_unit = st.selectbox("P_ship Birimi", list(PRESSURE_UNITS_GAUGE.keys()), index=0, key="pship_unit")
     P_ship_mbar_g = convert_pressure_to_mbar(P_ship_input, P_ship_unit, is_gauge=True)
