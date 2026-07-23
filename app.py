@@ -621,12 +621,18 @@ with m_col4:
 
 with m_col5:
     if isenthalpic_res is not None:
-        flash_label = f"İzentalpik Flaş Oranı (VF)"
-        flash_value = f"%{isenthalpic_res['flash_pct']:.2f}"
+        fp = isenthalpic_res['flash_pct']
+        if fp < 0.01:
+            flash_value = f"%{fp:.4f}"
+        elif fp < 1.0:
+            flash_value = f"%{fp:.3f}"
+        else:
+            flash_value = f"%{fp:.2f}"
         if isenthalpic_res['converged']:
             flash_tooltip = f"T_flash={isenthalpic_res['T_flash_K']:.2f}K"
         else:
-            flash_tooltip = "Yakınsama uyarısı"
+            flash_tooltip = "⚠️ Yakınsama uyarısı"
+        flash_label = "İzentalpik Flaş Oranı (VF)"
     else:
         flash_label = "VLE Flaş Buhar Oranı (V/F)"
         flash_value = f"%{vle_res['flash_pct']:.2f}"
@@ -843,23 +849,27 @@ with chart_col1:
 with chart_col2:
     st.subheader("Dolum Debisi - Vana Kapasite Karşılama Oranı")
     q_range = np.linspace(5000.0, 12000.0, 20)
-    cov_16 = []
-    cov_18 = []
-    
-    # Dynamic rated capacity from database (16"x18" = 148,500 mm2, 18"x20" = 191,000 mm2)
-    cap16 = calculate_valve_capacity(148500.0, P1_kPa_a)
-    cap18 = calculate_valve_capacity(191000.0, P1_kPa_a)
 
-    for q in q_range:
-        ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_lng, rho_v_kg_m3=rho_v, flash_pct=effective_flash_pct, w_bog_kg_h=w_bog_kg_h)
-        qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor) / N_working
-        
-        cov_16.append((cap16 / qa) * 100.0)
-        cov_18.append((cap18 / qa) * 100.0)
-        
+    # Get top 3 smallest valves from database for dynamic chart
+    from psv_database import load_psv_database
+    _all_valves = load_psv_database()
+    _sorted_valves = sorted(_all_valves, key=lambda v: v['orifice_area_mm2'])
+    _chart_valves = _sorted_valves[:3]
+
+    _chart_traces = []
+    for _v in _chart_valves:
+        _cap = calculate_valve_capacity(_v['orifice_area_mm2'], P1_kPa_a, K_d=_v.get('discharge_coeff_kd', 0.85))
+        _covs = []
+        for q in q_range:
+            ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_lng, rho_v_kg_m3=rho_v, flash_pct=effective_flash_pct, w_bog_kg_h=w_bog_kg_h)
+            qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor) / N_working
+            _covs.append((_cap / max(1.0, qa)) * 100.0)
+        _label = f"{_v['manufacturer']} {_v['dn_size']} ({_v['orifice_area_mm2']:.0f}mm²)"
+        _chart_traces.append(go.Scatter(x=q_range, y=_covs, mode='lines', name=_label, line=dict(width=2)))
+
     fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(x=q_range, y=cov_16, mode='lines', name='16" x 18" Vana Kapasite Oranı (%)', line=dict(color='#fbbf24', width=2)))
-    fig2.add_trace(go.Scatter(x=q_range, y=cov_18, mode='lines', name='18" x 20" Vana Kapasite Oranı (%)', line=dict(color='#4ade80', width=3)))
+    for _t in _chart_traces:
+        fig2.add_trace(_t)
     fig2.add_hline(y=100.0, line_dash="dash", line_color="#ef4444", annotation_text="%100 Kapasite Sınırı")
     fig2.add_vline(x=Q_fill, line_dash="dot", line_color="#38bdf8", annotation_text=f"Mevcut Dolum ({Q_fill:,.0f} m³/h)")
     fig2.update_layout(
@@ -873,35 +883,85 @@ with chart_col2:
 # Engineering Recommendation Panel
 st.header("4. Mühendislik Çözüm Önerileri")
 
-# Dynamically compute coverage and derated fill from matrix results
-cov_16x18 = next((m['coverage_pct'] for m in matrix if '16' in m['size_name'] and '18' in m['size_name']), 95.0)
-cov_18x20 = next((m['coverage_pct'] for m in matrix if '18' in m['size_name'] and '20' in m['size_name']), 123.5)
-derated_q_fill = Q_fill * (100.0 / max(1.0, cov_16x18))
+# Find smallest adequate valve and next candidates from matrix
+_sorted_matrix = sorted(matrix, key=lambda m: m['orifice_area_mm2'])
+_best_valve = None
+_second_valve = None
+for _m in _sorted_matrix:
+    if _m['coverage_pct'] >= 100.0:
+        if _best_valve is None:
+            _best_valve = _m
+        elif _second_valve is None:
+            _second_valve = _m
+            break
+
+if _best_valve is None:
+    # No valve meets 100%; pick the largest one
+    _best_valve = max(matrix, key=lambda m: m['coverage_pct'])
+    _adequate = False
+else:
+    _adequate = True
+
+_best_name = _best_valve['size_name']
+_best_cov = _best_valve['coverage_pct']
+_best_area = _best_valve['orifice_area_mm2']
+_second_name = _second_valve['size_name'] if _second_valve else '-'
+_second_cov = _second_valve['coverage_pct'] if _second_valve else 0.0
+
+# Derated fill for the best valve
+_derated_q = Q_fill * (100.0 / max(1.0, _best_cov))
 
 col_rec1, col_rec2, col_rec3 = st.columns(3)
 
 with col_rec1:
-    st.success(f"""
-    ### 🌟 Seçenek A (Tavsiye Edilen)
-    **Vana Çapını Büyütme**:
-    - {N_working}+{N_spare} PORV konfigürasyonunda vana anma çapı **18" x 20" (DN450 x DN500)** olarak seçilmelidir.
-    - Vana **%{cov_18x20:.1f}** kapasite kullanımı ile tam emniyet marjı sağlar.
-    """)
+    if _adequate:
+        st.success(f"""
+        ### 🌟 Seçenek A (Tavsiye Edilen)
+        **En Küçük Uygun Vana**:
+        - **{_best_name}** (A_orifice = {_best_area:,.0f} mm²)
+        - Kapasite Kullanımı: **%{_best_cov:.1f}**
+        - {N_working}+{N_spare} konfigürasyonu için optimum seçim.
+        """)
+    else:
+        st.error(f"""
+        ### ❌ Uygun Vana Bulunamadı
+        - En yüksek kapasiteli vana: **{_best_name}** (%{_best_cov:.1f})
+        - Vana konfigürasyonu veya dolum debisi gözden geçirilmelidir.
+        """)
 
 with col_rec2:
-    n_extra = N_working + 1
-    st.warning(f"""
-    ### ⚠️ Seçenek B (Konfigürasyon Revizyonu)
-    **Vana Adedini Arttırma**:
-    - Vana çapı 16" x 18" tutulacaksa, vana düzeni **{n_extra} Çalışan + {N_spare} Yedek (Toplam {n_extra + N_spare} Vana)** olarak güncellenmelidir.
-    """)
+    if _adequate and _second_valve:
+        n_extra = N_working + 1
+        st.warning(f"""
+        ### ⚠️ Seçenek B (Yedek Kapasite)
+        **Daha Büyük Vana Alternatifi**:
+        - **{_second_name}** (A_orifice = {_second_valve['orifice_area_mm2']:,.0f} mm²)
+        - Kapasite Kullanımı: **%{_second_cov:.1f}**
+        - Fazla emniyet marjı sağlar.
+        """)
+    elif _adequate:
+        st.info("ℹ️ İkinci uygun vana alternatifi bulunmamaktadır.")
+    else:
+        st.warning(f"""
+        ### ⚠️ Seçenek B (Konfigürasyon Revizyonu)
+        **Vana Adedini Arttırma**:
+        - Vana düzeni **{N_working + 1} Çalışan + {N_spare} Yedek** olarak güncellenmelidir.
+        """)
 
 with col_rec3:
-    st.info(f"""
-    ### 🛑 Seçenek C (Dolum Debisi Limiti)
-    **Dolum Hızını Derate Etme**:
-    - 16" x 18" vanalar {N_working}+{N_spare} düzeninde tutulursa, izin verilecek maksimum gemi LNG dolum debisi **{derated_q_fill:,.0f} m³/saat** seviyesi ile sınırlandırılmalıdır.
-    """)
+    if _adequate:
+        st.info(f"""
+        ### 🛑 Seçenek C (Dolum Debisi Limiti)
+        **Mevcut Vanayı Koruma**:
+        - {_best_name} vanalar {N_working}+{N_spare} düzeninde tutulursa,
+        - Maksimum dolum debisi **{_derated_q:,.0f} m³/h** ile sınırlandırılmalıdır.
+        """)
+    else:
+        st.info(f"""
+        ### 🛑 Seçenek C (Sistem Revizyonu)
+        **Saha Koşullarını Değiştirme**:
+        - Tank basıncı veya dolum debisi gözden geçirilmelidir.
+        """)
 
 # Printable Report Export Button
 st.markdown("<hr>", unsafe_allow_html=True)

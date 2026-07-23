@@ -26,7 +26,9 @@ Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motor
 - İzentalpik flaş sonuçları metrik kartlarda ve detaylı formül sekmesinde görüntülenir:
   - Besleme entalpisi (h_feed, J/mol)
   - Flaş sıcaklığı (T_flash, K)
-  - Buhar oranı (VF, % mol/mol)
+  - Buhar oranı (VF, % mol/mol) — küçük oranlar için yüksek hassasiyetli gösterim (%.4f)
+- **Dinamik Vana Öneri Paneli**: Artık vana önerileri veritabanındaki en küçük uygun vanadan başlayarak dinamik olarak hesaplanır. Girdi değişimlerinde otomatik yenilenir.
+- **Dinamik Dolum Debisi Grafiği**: Veritabanındaki en küçük 3 vana için kapasite karşılama eğrileri çizilir (sabit 16"x18"/18"x20" yerine).
 
 ### 4. Fiziksel Doğrulama — Tipik Senaryo Sonuçları (PR EOS)
 | Gemi Sıcaklığı | Gemi Basıncı | Tank Basıncı | Flaş Oranı (VF) |
