@@ -277,6 +277,47 @@ with input_tab2:
     else:
         rho_lng = rho_lng_calculated
 
+    # Kargo LNG Kompozisyonu (Tanktan Farklı)
+    st.subheader("4b. Kargo LNG Kompozisyonu (İzentalpik Flaş İçin)")
+    cargo_diff = st.checkbox("Kargo LNG Kompozisyonu Tanktakinden Farklı", value=False,
+                             help="İşaretlenirse gemi kargosunun kompozisyonu tanktan ayrı girilir. Karışım flaş hesabında kargo kompozisyonu kullanılır.")
+    cargo_comp_dict = None
+    if cargo_diff:
+        st.caption("Gemi Kargosu LNG Bileşenleri (mol %):")
+        cargo_selected = st.multiselect(
+            "Kargo Gazlar:",
+            options=available_comps,
+            default=st.session_state['active_components'],
+            format_func=lambda key: EOS_COMPONENT_DATA[key]['name'],
+            key="cargo_comps"
+        )
+        if not cargo_selected:
+            st.error("❌ En az 1 gaz bileşeni seçilmelidir!")
+            st.stop()
+        cargo_comp_dict = {}
+        for k in cargo_selected:
+            default_cargo_val = st.session_state.get(f"cargo_{k}", 90.0 if k == 'CH4' else 2.0)
+            val = st.number_input(
+                f"Kargo {EOS_COMPONENT_DATA[k]['name']} %",
+                min_value=0.0, max_value=100.0,
+                value=default_cargo_val,
+                key=f"cargo_{k}",
+                step=0.1, format="%.2f"
+            )
+            cargo_comp_dict[k] = val
+        cargo_total = sum(cargo_comp_dict.values())
+        if abs(cargo_total - 100.0) < 0.01:
+            st.success(f"✅ Kargo Mol Toplamı: **%{cargo_total:.2f}**")
+        elif cargo_total < 100.0:
+            st.warning(f"⚠️ Kargo Mol Toplamı: **%{cargo_total:.2f}** (Eksik: %{100.0 - cargo_total:.2f})")
+        else:
+            st.error(f"❌ Kargo Mol Toplamı: **%{cargo_total:.2f}** (Fazla: %{cargo_total - 100.0:.2f})")
+        if st.button("⚡ Kargo Kompozisyonunu %100'e Eşitle", key="norm_cargo"):
+            if cargo_total > 0:
+                for k in cargo_selected:
+                    st.session_state[f"cargo_{k}"] = round((st.session_state.get(f"cargo_{k}", 0.0) / cargo_total) * 100.0, 3)
+                st.rerun()
+
 with input_tab3:
     st.subheader("5. Gemi Transfer Basıncı (İzentalpik Flaş İçin)")
     col_pship, col_pship_u = st.columns([3, 2])
@@ -289,9 +330,9 @@ with input_tab3:
     st.subheader("6. Flaş BOG Debisi Giriş Modu")
     flash_mode = st.radio(
         "Flaş BOG Hesap Modu:",
-        ["İzentalpik Flaş (PH-Flash, EOS)", "EOS VLE Flaş Oranı (%V/F)", "Sabit Flaş Oranı (%)", "Manuel Debi Girişi"],
+        [        "İzentalpik Flaş (PH-Flash, EOS)", "EOS VLE Flaş Oranı (%V/F)", "Sabit Flaş Oranı (%)", "Manuel Debi Girişi"],
         index=0,
-        help="PH-Flash: İzentalpik genleşme ile gemi basıncından tank basıncına flaş hesabı. VLE Flash: Tank tahliye koşullarında PT-flaş."
+        help="PH-Flash: Gemi LNG'sinin tank basıncına izentalpik genleşmesiyle GERÇEK flaş oranı (NFPA 59A / API 625 uyumlu). VLE Flash: Tank işletme koşullarında denge buhar oranı (dolum flaşı DEĞİL, referans amaçlı)."
     )
     
     if flash_mode == "Manuel Debi Girişi":
@@ -353,17 +394,21 @@ def _compute_all_results(
     w_flash_manual_kg_h_val, flash_pct_val, w_bog_kg_h_val,
     bog_auto_mode_val, bor_pct_per_day_val,
     wetted_area_m2_val, insulation_factor_F_val, latent_heat_kJ_kg_val,
-    is_isenthalpic_mode_val=False, p_ship_mbar_g_val=5000.0
+    is_isenthalpic_mode_val=False, p_ship_mbar_g_val=5000.0,
+    cargo_comp_frozen=None
 ):
     """Cached computation pipeline for all thermodynamic and sizing results."""
     comp_dict = dict(comp_dict_frozen)
+    flash_comp = dict(cargo_comp_frozen) if cargo_comp_frozen else comp_dict
 
     P1_mbar_a = p_set_mbar + (p_set_mbar * (overpressure_pct / 100.0)) + p_atm_min_mbar
     P1_kPa_a = P1_mbar_a / 10.0
     P2_kPa_a = p_atm_min_mbar / 10.0
+    P_tank_kPa_a = (p_set_mbar + p_atm_min_mbar) / 10.0
 
-    # Operational VLE Flash
-    vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_relief_K, pressure_kPa_a=P1_kPa_a, eos=eos_code_val)
+    # VLE Flash at TANK OPERATING pressure (not relieving P1)
+    # This gives the equilibrium vapor fraction at normal tank conditions
+    vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_relief_K, pressure_kPa_a=P_tank_kPa_a, eos=eos_code_val)
     Z_factor = vle_res['Z_gas']
     k_factor = vle_res['k_mix']
     rho_v = vle_res['rho_v_kg_m3']
@@ -373,9 +418,8 @@ def _compute_all_results(
     isenthalpic_res = None
     if is_isenthalpic_mode_val:
         P_ship_kPa_a = (p_ship_mbar_g_val + p_atm_min_mbar) / 10.0
-        P_tank_kPa_a = (p_set_mbar + p_atm_min_mbar) / 10.0
         isenthalpic_res = calculate_isenthalpic_flash(
-            comp_dict,
+            flash_comp,
             t_feed_k=t_lng_K,
             p_feed_kPa_a=P_ship_kPa_a,
             p_flash_kPa_a=P_tank_kPa_a,
@@ -492,7 +536,8 @@ try:
         wetted_area_m2_val=wetted_area_m2, insulation_factor_F_val=insulation_factor_F,
         latent_heat_kJ_kg_val=latent_heat_kJ_kg,
         is_isenthalpic_mode_val=is_isenthalpic_mode,
-        p_ship_mbar_g_val=P_ship_mbar_g
+        p_ship_mbar_g_val=P_ship_mbar_g,
+        cargo_comp_frozen=tuple(sorted(cargo_comp_dict.items())) if cargo_comp_dict else None
     )
 
     # Unpack results
