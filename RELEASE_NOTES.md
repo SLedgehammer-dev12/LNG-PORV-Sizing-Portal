@@ -38,6 +38,16 @@ Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motor
 | %90.5 | %90.5 | **%0.45** (aynı kompozisyon) |
 | %85.0 | %90.5 | **%0.12** (düşük uçuculuk → daha az flaş) |
 
+### 5. Hata Düzeltmeleri
+- **HEOS/IDEAL EOS & cargo kompozisyonu bug fix**: CoolProp ile PR entalpi referans farkı giderildi. HEOS ve IDEAL seçimlerinde izentalpik flaş artık PR entalpi tabanlı çalışır, tüm EOS'lar tutarlı sonuç verir.
+- **EOS VLE Flaş Oranı modu düzeltmesi**: Artık bu mod da izentalpik flaş hesabını kullanır (NFPA 59A uyumlu). Eski VLE modu tank içeriğinin denge buhar oranını hesaplıyordu (%77), dolum flaşı ile ilgisi yoktu.
+- **Birim çevrim hatası yok**: VLE flash molar/kütle VF farkı ~%3 mertebesinde, ihmal edilebilir.
+
+### 6. Yeni Özellikler
+- **💾 Konfigürasyon Kaydet/Yükle**: Tüm girdiler JSON formatında kaydedilip geri yüklenebilir.
+- **📊 Dinamik Vana Listesi**: Vanalar orifis alanına göre artan sırada listelenir. Kapasite ≥%100 şartını sağlayan en küçük vana otomatik vurgulanır.
+- **🖼️ Uygulama İkonu**: LNG tankı ikonu macOS .app bundle'ına eklendi.
+
 ### 4. Fiziksel Doğrulama — Tipik Senaryo Sonuçları (PR EOS)
 | Gemi Sıcaklığı | Gemi Basıncı | Tank Basıncı | Flaş Oranı (VF) |
 |:---:|:---:|:---:|:---:|

@@ -38,7 +38,9 @@ jobs:
       - run: |
           S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
           pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \
-            --add-data "app.py:." --add-data "psv_database.json:." --add-data "${S}:streamlit/static" \
+            --add-data "app.py:." --add-data "psv_database.json:." --add-data "icons/icon.icns:." \
+            --add-data "${S}:streamlit/static" \
+            --icon icons/icon.icns \
             --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
             --copy-metadata streamlit run_app.py
       - uses: actions/upload-artifact@v4
