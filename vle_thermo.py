@@ -444,7 +444,7 @@ def calculate_two_phase_vle_flash(
             x_liq = {c: val / sum_x for c, val in x_liq.items()}
             y_vap = {c: val / sum_y for c, val in y_vap.items()}
 
-        if eos.upper() not in ('PR', 'SRK') or v_frac <= 0.0 or v_frac >= 1.0:
+        if eos.upper() not in ('PR', 'SRK') or (v_frac <= 0.0 or v_frac >= 1.0) and outer_step > 0:
             break
 
         # Calculate EOS liquid and vapor fugacity coefficients
@@ -474,4 +474,346 @@ def calculate_two_phase_vle_flash(
         'rho_v_kg_m3': vap_props['rho_v_kg_m3'],
         'M_vapor_g_mol': vap_props['M_mix'],
         'eos_used': eos.upper()
+    }
+
+
+def calculate_h_ideal_mixture(composition_mol: dict, temperature_k: float, t_ref_k: float = 0.0) -> float:
+    """
+    Ideal gas mixture enthalpy h_ideal(T) in J/mol relative to T_ref.
+    h_ideal = sum(x_i * int(Cp_ideal_i dT, T_ref, T))
+    Cp_ideal_i(T) = A + B*T + C*T^2 + D*T^3  (Aly-Lee polynomial)
+    """
+    T = max(30.0, temperature_k)
+    total_pct = sum(composition_mol.values())
+    if total_pct <= 0:
+        total_pct = 100.0
+    x = {c: pct / total_pct for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
+    if not x:
+        x = {'CH4': 1.0}
+
+    h = 0.0
+    for c, frac in x.items():
+        coeffs = EOS_COMPONENT_DATA[c]['cp_coeffs']
+        A, B, C, D = coeffs
+        def integral(T_val):
+            return A*T_val + B/2*T_val**2 + C/3*T_val**3 + D/4*T_val**4
+        h += frac * (integral(T) - integral(t_ref_k))
+    return h
+
+
+def calculate_h_total_mixture(
+    composition_mol: dict,
+    temperature_k: float,
+    pressure_kPa_a: float,
+    eos: str = 'PR',
+    phase: str = 'vapor'
+) -> float:
+    """
+    Total molar enthalpy h_total(T,P) in J/mol for a mixture.
+    PR/SRK:  h_total = h_ideal + h_residual
+    HEOS:    h_total from CoolProp PropsSI('Hmolar')
+    IDEAL:   h_total = h_ideal
+    """
+    total_pct = sum(composition_mol.values())
+    if total_pct <= 0:
+        total_pct = 100.0
+    x = {c: pct / total_pct for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
+    if not x:
+        x = {'CH4': 1.0}
+
+    P_Pa = pressure_kPa_a * 1000.0
+    T = max(30.0, temperature_k)
+
+    if eos.upper() in ('HEOS', 'GERG2008'):
+        try:
+            import CoolProp.CoolProp as CP
+            fluid_parts = [f"{COOLPROP_FLUID_NAMES[c]}[{pct:.6f}]" for c, pct in x.items() if c in COOLPROP_FLUID_NAMES]
+            if fluid_parts:
+                fluid_str = "HEOS::" + "&".join(fluid_parts)
+                h_total = CP.PropsSI('Hmolar', 'T', T, 'P', P_Pa, fluid_str)
+                return float(h_total)
+        except Exception as err:
+            logger.warning(f"CoolProp HEOS enthalpy error, falling back to PR: {err}")
+
+    h_ideal = calculate_h_ideal_mixture(x, T)
+
+    if eos.upper() == 'IDEAL':
+        return h_ideal
+
+    a_i = {}
+    b_i = {}
+    da_dT_i = {}
+
+    for c in x:
+        data = EOS_COMPONENT_DATA[c]
+        Tc, Pc, w = data['Tc'], data['Pc'], data['omega']
+        Tr = T / Tc
+
+        if eos.upper() == 'SRK':
+            m = 0.480 + 1.574 * w - 0.176 * (w**2)
+            a0 = 0.42748 * ((R_GAS * Tc)**2) / (Pc * 1e5)
+            b0 = 0.08664 * (R_GAS * Tc) / (Pc * 1e5)
+        else:
+            m = 0.37464 + 1.54226 * w - 0.26992 * (w**2)
+            a0 = 0.45724 * ((R_GAS * Tc)**2) / (Pc * 1e5)
+            b0 = 0.07780 * (R_GAS * Tc) / (Pc * 1e5)
+
+        alpha = (1.0 + m * (1.0 - math.sqrt(Tr)))**2
+        a_i[c] = a0 * alpha
+        b_i[c] = b0
+        sqrt_alpha = math.sqrt(alpha)
+        da_dT_i[c] = -a0 * m * sqrt_alpha / math.sqrt(T * Tc)
+
+    a_mix = 0.0
+    da_dT_mix = 0.0
+    b_mix = sum(x[c] * b_i[c] for c in x)
+    comp_list = list(x.keys())
+
+    for i in range(len(comp_list)):
+        c_i = comp_list[i]
+        for j in range(len(comp_list)):
+            c_j = comp_list[j]
+            k_ij = get_k_ij(c_i, c_j)
+            a_ij = math.sqrt(a_i[c_i] * a_i[c_j]) * (1.0 - k_ij)
+            a_mix += x[c_i] * x[c_j] * a_ij
+            if a_i[c_i] > 0 and a_i[c_j] > 0:
+                da_ij = 0.5 * (da_dT_i[c_i] * math.sqrt(a_i[c_j] / a_i[c_i]) + da_dT_i[c_j] * math.sqrt(a_i[c_i] / a_i[c_j])) * (1.0 - k_ij)
+                da_dT_mix += x[c_i] * x[c_j] * da_ij
+
+    A = (a_mix * P_Pa) / ((R_GAS * T)**2)
+    B = (b_mix * P_Pa) / (R_GAS * T)
+
+    Z_gas, Z_liquid = solve_cubic_z(A, B, eos=eos)
+    Z = Z_gas if phase.lower() in ('gas', 'vapor') else Z_liquid
+    Z = max(B + 1e-4, Z)
+
+    if eos.upper() == 'SRK':
+        h_res = R_GAS * T * (Z - 1.0) + (T * da_dT_mix - a_mix) / b_mix * math.log(1.0 + B / Z)
+    else:
+        sqrt2 = math.sqrt(2.0)
+        log_arg = (Z + (1.0 + sqrt2) * B) / max(1e-8, Z + (1.0 - sqrt2) * B)
+        h_res = R_GAS * T * (Z - 1.0) + (T * da_dT_mix - a_mix) / (2.0 * sqrt2 * b_mix) * math.log(max(1e-8, log_arg))
+
+    return h_ideal + h_res
+
+
+def _find_bubble_temperature_wilson(
+    composition_mol: dict,
+    pressure_kPa_a: float,
+    t_min: float = 90.0,
+    t_max: float = 150.0
+) -> float:
+    """Finds bubble-point temperature using Wilson K-values (f(0)=0).
+    For methane-rich mixtures near 1 bar, Wilson K-values give inaccurate
+    results (K_CH4~1 makes f(0)~0 over a range). Returns best estimate."""
+    total_pct = sum(composition_mol.values()) or 100.0
+    z = {c: pct / total_pct for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
+    if not z:
+        z = {'CH4': 1.0}
+    P_bar = pressure_kPa_a / 100.0
+
+    def rr0(Tv):
+        K = {c: (EOS_COMPONENT_DATA[c]['Pc'] / P_bar) * math.exp(5.37 * (1.0 + EOS_COMPONENT_DATA[c]['omega']) * (1.0 - EOS_COMPONENT_DATA[c]['Tc'] / Tv)) for c in z}
+        return sum(z[c] * (K[c] - 1.0) for c in z)
+
+    f_min, f_max = rr0(t_min), rr0(t_max)
+    if f_min > 0: return t_min
+    if f_max < 0: return t_max
+    for _ in range(40):
+        Tm = 0.5 * (t_min + t_max)
+        fm = rr0(Tm)
+        if abs(fm) < 1e-8 or (t_max - t_min) < 1e-6: return Tm
+        t_min, t_max = (Tm, t_max) if fm > 0 else (t_min, Tm)
+    return 0.5 * (t_min + t_max)
+
+
+def _compute_robust_vle_k_values(
+    composition_mol: dict,
+    temperature_k: float,
+    pressure_kPa_a: float,
+    eos: str = 'PR'
+) -> dict:
+    """
+    Computes EOS fugacity-based K-values for a given composition at (T, P).
+    Uses composition both as liquid and (bubble-point) vapor estimate.
+    Returns K-values dict.
+    """
+    if eos.upper() not in ('PR', 'SRK'):
+        return {}
+    T = max(30.0, temperature_k)
+    total = sum(composition_mol.values()) or 100.0
+    z = {c: v / total for c, v in composition_mol.items() if c in EOS_COMPONENT_DATA and v > 0}
+    if not z:
+        z = {'CH4': 1.0}
+
+    P_bar = pressure_kPa_a / 100.0
+    K_wilson = {}
+    for c in z:
+        d = EOS_COMPONENT_DATA[c]
+        K_wilson[c] = (d['Pc'] / P_bar) * math.exp(5.37 * (1.0 + d['omega']) * (1.0 - d['Tc'] / T))
+
+    denom = sum(K_wilson[c] * z[c] for c in z)
+    y_bp = {c: K_wilson[c] * z[c] / max(1e-8, denom) for c in z} if denom > 0 else dict(z)
+
+    phi_L = calculate_fugacity_coefficients(z, T, pressure_kPa_a, eos=eos, phase='liquid')
+    phi_V = calculate_fugacity_coefficients(y_bp, T, pressure_kPa_a, eos=eos, phase='vapor')
+
+    K_eos = {}
+    for c in z:
+        K_eos[c] = phi_L.get(c, 1.0) / max(1e-10, phi_V.get(c, 1.0))
+    return K_eos
+
+
+def _compute_h_mix(
+    composition_mol: dict,
+    temperature_k: float,
+    pressure_kPa_a: float,
+    eos: str = 'PR'
+) -> tuple:
+    """
+    Computes mixture enthalpy h_mix (J/mol) and VF at (T, P).
+    Uses EOS fugacity-based VF when standard VLE flash returns VF=0
+    near the bubble point, ensuring a continuous h_mix(T).
+    Returns (h_mix, vf, x, y).
+    """
+    total = sum(composition_mol.values()) or 100.0
+    z_frac = {c: v / total for c, v in composition_mol.items() if c in EOS_COMPONENT_DATA and v > 0}
+    if not z_frac:
+        z_frac = {'CH4': 1.0}
+
+    vle = calculate_two_phase_vle_flash(composition_mol, temperature_k, pressure_kPa_a, eos=eos)
+    vf = vle['v_frac_VF']
+    x = vle['x_liquid'] if vle['x_liquid'] else z_frac
+    y = vle['y_vapor'] if vle['y_vapor'] else z_frac
+
+    if vf <= 0.0 and eos.upper() in ('PR', 'SRK'):
+        K_eos = _compute_robust_vle_k_values(z_frac, temperature_k, pressure_kPa_a, eos=eos)
+        if K_eos:
+            def rr(vf_val):
+                s = 0.0
+                for c in z_frac:
+                    dk = K_eos[c] - 1.0
+                    s += z_frac[c] * dk / (1.0 + vf_val * dk)
+                return s
+
+            f0 = rr(0.0)
+            f1 = rr(1.0)
+            if f0 > 0 and f1 < 0:
+                vf_e = 0.05
+                for _ in range(30):
+                    fv = rr(vf_e)
+                    if abs(fv) < 1e-10:
+                        break
+                    dfv = -sum(z_frac[c] * ((K_eos[c] - 1.0)**2) / ((1.0 + vf_e * (K_eos[c] - 1.0))**2) for c in z_frac)
+                    if abs(dfv) > 1e-12:
+                        vf_e -= fv / dfv
+                    vf_e = max(1e-8, min(0.999999, vf_e))
+
+                if 0 < vf_e < 1.0:
+                    vf = vf_e
+                    x = {c: z_frac[c] / (1.0 + vf * (K_eos[c] - 1.0)) for c in z_frac}
+                    sx = sum(x.values())
+                    x = {c: v / sx for c, v in x.items()} if sx > 0 else z_frac
+                    y = {c: K_eos[c] * x[c] for c in z_frac}
+                    sy = sum(y.values())
+                    y = {c: v / sy for c, v in y.items()} if sy > 0 else z_frac
+
+    if vf <= 0.0:
+        h = calculate_h_total_mixture(x, temperature_k, pressure_kPa_a, eos=eos, phase='liquid')
+    elif vf >= 1.0:
+        h = calculate_h_total_mixture(y, temperature_k, pressure_kPa_a, eos=eos, phase='vapor')
+    else:
+        hl = calculate_h_total_mixture(x, temperature_k, pressure_kPa_a, eos=eos, phase='liquid')
+        hv = calculate_h_total_mixture(y, temperature_k, pressure_kPa_a, eos=eos, phase='vapor')
+        h = vf * hv + (1.0 - vf) * hl
+
+    return h, vf, x, y
+
+
+def calculate_isenthalpic_flash(
+    composition_mol: dict,
+    t_feed_k: float,
+    p_feed_kPa_a: float,
+    p_flash_kPa_a: float,
+    eos: str = 'PR',
+    t_min_k: float = 90.0,
+    t_max_k: float = 200.0,
+    tol: float = 0.1,
+    max_iter: int = 40
+) -> dict:
+    """
+    Isenthalpic (PH) flash: expand feed from (T_feed, P_feed) to P_flash.
+    Solves h_mix(T_flash, P_flash) = h_feed(T_feed, P_feed) for T_flash and VF.
+    Uses _compute_h_mix with EOS-based VF refinement for continuity.
+
+    Supports PR, SRK, HEOS (GERG-2008), and Ideal Gas EOS.
+    Returns dict: v_frac_VF, flash_pct, T_flash_K, h_feed_J_mol,
+                  y_vapor, x_liquid, eos_used, converged
+    """
+    total_pct = sum(composition_mol.values()) or 100.0
+    z = {c: pct / total_pct for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
+    if not z:
+        z = {'CH4': 1.0}
+
+    T_feed = max(30.0, t_feed_k)
+    P_feed = max(1.0, p_feed_kPa_a)
+    P_flash = max(1.0, p_flash_kPa_a)
+
+    h_feed = calculate_h_total_mixture(z, T_feed, P_feed, eos=eos, phase='liquid')
+
+    if eos.upper() == 'IDEAL':
+        vle = calculate_two_phase_vle_flash(z, T_feed, P_flash, eos=eos)
+        return {
+            'v_frac_VF': vle['v_frac_VF'],
+            'flash_pct': vle['flash_pct'],
+            'T_flash_K': T_feed, 'h_feed_J_mol': h_feed,
+            'y_vapor': vle['y_vapor'], 'x_liquid': vle['x_liquid'],
+            'eos_used': eos.upper(), 'converged': True
+        }
+
+    h_low, vf_low, _, _ = _compute_h_mix(z, t_min_k, P_flash, eos=eos)
+    h_high, vf_high, _, _ = _compute_h_mix(z, t_max_k, P_flash, eos=eos)
+
+    if h_feed <= h_low:
+        return {
+            'v_frac_VF': 0.0, 'flash_pct': 0.0,
+            'T_flash_K': t_min_k, 'h_feed_J_mol': h_feed,
+            'y_vapor': z, 'x_liquid': z,
+            'eos_used': eos.upper(), 'converged': True
+        }
+    if h_feed >= h_high:
+        return {
+            'v_frac_VF': 1.0, 'flash_pct': 100.0,
+            'T_flash_K': t_max_k, 'h_feed_J_mol': h_feed,
+            'y_vapor': z, 'x_liquid': z,
+            'eos_used': eos.upper(), 'converged': True
+        }
+
+    T_low, T_high = t_min_k, t_max_k
+    f_low, f_high = h_low - h_feed, h_high - h_feed
+
+    x_mid, y_mid = z, z
+    converged, T_mid, vf_mid = False, 0.5 * (T_low + T_high), 0.0
+
+    for iteration in range(max_iter):
+        T_mid = 0.5 * (T_low + T_high)
+        h_mid, vf_mid, x_mid, y_mid = _compute_h_mix(z, T_mid, P_flash, eos=eos)
+        f_mid = h_mid - h_feed
+
+        if abs(f_mid) < tol or (T_high - T_low) < 1e-4:
+            converged = True
+            break
+
+        if f_mid * f_low > 0:
+            T_low, f_low = T_mid, f_mid
+        else:
+            T_high, f_high = T_mid, f_mid
+
+    return {
+        'v_frac_VF': max(0.0, min(1.0, vf_mid)),
+        'flash_pct': max(0.0, min(100.0, vf_mid * 100.0)),
+        'T_flash_K': T_mid if converged else 0.5 * (T_low + T_high),
+        'h_feed_J_mol': h_feed,
+        'y_vapor': y_mid, 'x_liquid': x_mid,
+        'eos_used': eos.upper(), 'converged': converged
     }

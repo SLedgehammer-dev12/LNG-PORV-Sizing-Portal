@@ -54,7 +54,7 @@ jobs:
         with:
           files: dist/LNG_PORV_Sizing.exe
           body_path: RELEASE_NOTES.md
-          name: LNG PORV Sizing Portal v1.0.0 (Windows Standalone EXE)
+          name: LNG PORV Sizing Portal v1.0.1 (Windows Standalone EXE)
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false

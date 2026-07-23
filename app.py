@@ -12,7 +12,7 @@ import plotly.express as px
 import logging
 
 from lng_thermo import calculate_costald_density, calculate_vapor_density, COMPONENT_DATA
-from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, EOS_COMPONENT_DATA
+from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, calculate_isenthalpic_flash, EOS_COMPONENT_DATA
 from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix, calculate_valve_capacity, calculate_bor_tank_bog, calculate_fire_scenario_load
 from psv_database import search_matching_valves
 from report_generator import generate_html_report
@@ -278,12 +278,20 @@ with input_tab2:
         rho_lng = rho_lng_calculated
 
 with input_tab3:
-    st.subheader("5. Flaş BOG Debisi Giriş Modu")
+    st.subheader("5. Gemi Transfer Basıncı (İzentalpik Flaş İçin)")
+    col_pship, col_pship_u = st.columns([3, 2])
+    with col_pship:
+        P_ship_input = st.number_input("Gemi Transfer Basıncı (P_ship)", value=5.0, step=0.5, min_value=0.1, help="LNG gemisinin tanka transfer basıncı (tipik 4-8 bar_g)")
+    with col_pship_u:
+        P_ship_unit = st.selectbox("P_ship Birimi", list(PRESSURE_UNITS_GAUGE.keys()), index=0, key="pship_unit")
+    P_ship_mbar_g = convert_pressure_to_mbar(P_ship_input, P_ship_unit, is_gauge=True)
+
+    st.subheader("6. Flaş BOG Debisi Giriş Modu")
     flash_mode = st.radio(
         "Flaş BOG Hesap Modu:",
-        ["EOS VLE Flaş Oranı (%V/F)", "Sabit Flaş Oranı (%)", "Manuel Debi Girişi"],
+        ["İzentalpik Flaş (PH-Flash, EOS)", "EOS VLE Flaş Oranı (%V/F)", "Sabit Flaş Oranı (%)", "Manuel Debi Girişi"],
         index=0,
-        help="VLE Flaş dengesi ile hesaplanan V/F buhar oranı (vle_res) veya manuel sabit oran/debi seçimi."
+        help="PH-Flash: İzentalpik genleşme ile gemi basıncından tank basıncına flaş hesabı. VLE Flash: Tank tahliye koşullarında PT-flaş."
     )
     
     if flash_mode == "Manuel Debi Girişi":
@@ -295,16 +303,24 @@ with input_tab3:
             w_flash_unit = st.selectbox("Flaş Debi Birimi", list(MASS_FLOW_UNITS.keys()), index=0)
         w_flash_manual_kg_h = convert_mass_flow_to_kg_h(w_flash_input, w_flash_unit)
         manual_flash_pct = 2.0
+        is_isenthalpic_mode = False
     elif flash_mode == "Sabit Flaş Oranı (%)":
         flash_manual_mode = False
         w_flash_manual_kg_h = 94200.0
         manual_flash_pct = st.number_input("Manuel Sabit Flaş Oranı (%)", value=2.0, step=0.1)
+        is_isenthalpic_mode = False
+    elif flash_mode == "İzentalpik Flaş (PH-Flash, EOS)":
+        flash_manual_mode = False
+        w_flash_manual_kg_h = 94200.0
+        manual_flash_pct = None
+        is_isenthalpic_mode = True
     else: # EOS VLE Flaş Oranı (%V/F)
         flash_manual_mode = False
         w_flash_manual_kg_h = 94200.0
         manual_flash_pct = None
-        
-    st.subheader("6. Tank Isı Girişi BOG Giriş Modu")
+        is_isenthalpic_mode = False
+
+    st.subheader("7. Tank Isı Girişi BOG Giriş Modu")
     bog_mode = st.radio(
         "Tank BOG Hesaplama Yöntemi:",
         ["Otomatik (BOR %/gün Tank Hacminden)", "Manuel BOG Debisi Girişi"],
@@ -336,10 +352,10 @@ def _compute_all_results(
     t_fire_K, eos_code_val, n_working, flash_manual_mode_val,
     w_flash_manual_kg_h_val, flash_pct_val, w_bog_kg_h_val,
     bog_auto_mode_val, bor_pct_per_day_val,
-    wetted_area_m2_val, insulation_factor_F_val, latent_heat_kJ_kg_val
+    wetted_area_m2_val, insulation_factor_F_val, latent_heat_kJ_kg_val,
+    is_isenthalpic_mode_val=False, p_ship_mbar_g_val=5000.0
 ):
     """Cached computation pipeline for all thermodynamic and sizing results."""
-    # Convert frozen dict back
     comp_dict = dict(comp_dict_frozen)
 
     P1_mbar_a = p_set_mbar + (p_set_mbar * (overpressure_pct / 100.0)) + p_atm_min_mbar
@@ -353,7 +369,21 @@ def _compute_all_results(
     rho_v = vle_res['rho_v_kg_m3']
     M_vapor = vle_res['M_vapor_g_mol']
 
-    effective_flash_pct = vle_res['flash_pct'] if flash_pct_val is None else flash_pct_val
+    # Isenthalpic (PH) Flash or fallback to PT-flash / manual
+    isenthalpic_res = None
+    if is_isenthalpic_mode_val:
+        P_ship_kPa_a = (p_ship_mbar_g_val + p_atm_min_mbar) / 10.0
+        P_tank_kPa_a = (p_set_mbar + p_atm_min_mbar) / 10.0
+        isenthalpic_res = calculate_isenthalpic_flash(
+            comp_dict,
+            t_feed_k=t_lng_K,
+            p_feed_kPa_a=P_ship_kPa_a,
+            p_flash_kPa_a=P_tank_kPa_a,
+            eos=eos_code_val
+        )
+        effective_flash_pct = isenthalpic_res['flash_pct']
+    else:
+        effective_flash_pct = vle_res['flash_pct'] if flash_pct_val is None else flash_pct_val
 
     loads = calculate_relieving_loads(
         q_fill_m3_h=q_fill_m3h, rho_lng_kg_m3=rho_lng_val, rho_v_kg_m3=rho_v,
@@ -436,7 +466,8 @@ def _compute_all_results(
         'governing_scenario': governing_scenario, 'governing_w_total_kg_h': governing_w_total_kg_h,
         'governing_q_a_total': governing_q_a_total, 'governing_A_o_mm2': governing_A_o_mm2,
         'governing_matrix': governing_matrix, 'governing_is_fire': governing_is_fire,
-        'matched_valves': matched_valves, 'eos_code': eos_code_val
+        'matched_valves': matched_valves, 'eos_code': eos_code_val,
+        'isenthalpic_res': isenthalpic_res
     }
 
 
@@ -459,7 +490,9 @@ try:
         w_bog_kg_h_val=w_bog_kg_h, bog_auto_mode_val=bog_auto_mode,
         bor_pct_per_day_val=bor_pct_per_day,
         wetted_area_m2_val=wetted_area_m2, insulation_factor_F_val=insulation_factor_F,
-        latent_heat_kJ_kg_val=latent_heat_kJ_kg
+        latent_heat_kJ_kg_val=latent_heat_kJ_kg,
+        is_isenthalpic_mode_val=is_isenthalpic_mode,
+        p_ship_mbar_g_val=P_ship_mbar_g
     )
 
     # Unpack results
@@ -478,6 +511,7 @@ try:
     governing_A_o_mm2 = results['governing_A_o_mm2']
     governing_matrix = results['governing_matrix']; governing_is_fire = results['governing_is_fire']
     matched_valves = results['matched_valves']
+    isenthalpic_res = results.get('isenthalpic_res', None)
 
     # Report Data Dictionary Compilation
     report_inputs = {
@@ -586,10 +620,21 @@ with m_col4:
     """, unsafe_allow_html=True)
 
 with m_col5:
+    if isenthalpic_res is not None:
+        flash_label = f"İzentalpik Flaş Oranı (VF)"
+        flash_value = f"%{isenthalpic_res['flash_pct']:.2f}"
+        if isenthalpic_res['converged']:
+            flash_tooltip = f"T_flash={isenthalpic_res['T_flash_K']:.2f}K"
+        else:
+            flash_tooltip = "Yakınsama uyarısı"
+    else:
+        flash_label = "VLE Flaş Buhar Oranı (V/F)"
+        flash_value = f"%{vle_res['flash_pct']:.2f}"
+        flash_tooltip = ""
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">%{vle_res['flash_pct']:.2f}</div>
-        <div class="metric-label">VLE Flaş Buhar Oranı (V/F)</div>
+        <div class="metric-value">{flash_value}</div>
+        <div class="metric-label">{flash_label}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -672,6 +717,17 @@ with exp1:
     - **Toplam Kütlesel Operasyonel Tahliye Debisi (W_total)**:
       W_total = W_disp + W_flash + W_bog = **{loads['w_total_kg_h']:,.1f} kg/h** ({loads['w_total_kg_s'] * 1000.0:.2f} g/s)
     """)
+    if isenthalpic_res is not None:
+        st.info(f"""
+        #### 🔬 İzentalpik Flaş (PH-Flash) Detayı ({isenthalpic_res['eos_used']})
+
+        | Parametre | Değer | Birim |
+        | :--- | :---: | :---: |
+        | Besleme Entalpisi (h_feed) | **{isenthalpic_res['h_feed_J_mol']:.1f}** | J/mol |
+        | Flaş Sıcaklığı (T_flash) | **{isenthalpic_res['T_flash_K']:.2f}** | K |
+        | Buhar Oranı (VF) | **%{isenthalpic_res['flash_pct']:.3f}** | mol/mol |
+        | Çözüm Yakınsadı | **{'Evet' if isenthalpic_res['converged'] else 'Hayır'}** | - |
+        """)
 
 with exp2:
     st.markdown(f"""

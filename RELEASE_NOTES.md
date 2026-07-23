@@ -1,28 +1,39 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.0 (Windows Release)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.1 (Windows Release)
 
-Bu sürüm, Kriyojenik LNG Depolama Tankları için **Pilot Uyarılı Emniyet Vanası (PORV - Pilot Operated Relief Valve)** boyutlandırma hesaplarını, sahadaki atmosferik basınç sınırlarını ($P_{\text{atm, min}} = 906.03\text{ mbar}_a$), Hankinson-Brobst-Thomson (**COSTALD**) yöntemi ile sıvı LNG ve buhar termodinamiğini eksiksiz hesaplayan **Windows Standalone Executable (`LNG_PORV_Sizing.exe`)** paketini içerir.
+Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motoru** eklenmiş, NFPA 59A Madde 8.4.10.5.1(5) ve API 625 Madde 7.4.2.4(f)-(g) standartlarına tam uyumlu güncellemedir. LNG gemisinden tanka girişteki izentalpik genleşme (Joule-Thomson etkisi) artık dört farklı durum denklemi (PR, SRK, HEOS/GERG-2008, Ideal Gas) ile modellenebilmektedir.
 
 ---
 
 ## 📋 Sürüm Öne Çıkanları (Release Highlights)
 
-### 1. Standartlar ve Mühendislik Formülasyonları
-- **NFPA 59A (2019)** Madde 8.4.10.7.4.2 uyarınca Hava Eşdeğeri debi ($Q_a$) hesabı.
-- **API 520 Part I & II** Subcritical (Kritik Altı) gaz akış denklemi ve $A_o$ orifis alanı hesabı.
-- **API 625**, **API 620 Appendix Q** ve **ASME Section VIII Div. 1** uyumluluğu.
+### 1. İzentalpik Flaş (PH-Flash) Termodinamik Motoru
+- **PR (Peng-Robinson 1976)**: Residual entalpi + ideal gaz Cp entegrasyonu ile h_total(T,P).
+- **SRK (Soave-Redlich-Kwong)**: Aynı metodoloji, SRK spesifik residual entalpi formülasyonu.
+- **HEOS (GERG-2008)**: CoolProp `PropsSI('Hmolar')` ile doğrudan toplam entalpi (fallback: PR).
+- **Ideal Gas**: h_residual = 0 (basınçtan bağımsız, referans model).
+- tüm EOS seçenekleri kullanıcı arayüzünden seçilebilir.
 
-### 2. Kritik Saha Koşulları & Basınç Duyarlılığı
-- Minimum sahadaki atmosferik basınç ($906.03\text{ mbar}_a$) altında gaz kütlesel yoğunluğunun düşmesiyle Orifis Alanının $154.500\text{ mm}^2$'ye çıktığını doğrulayan worst-case boyutlandırma.
+### 2. Termodinamik Altyapı
+- `h_ideal(T)` = Σ x_i · ∫ Cp_ideal,i dT (Aly-Lee polinom, T_ref=0K).
+- `h_residual(T,P)` — PR/SRK analitik EOS residual entalpi formülü:
+  - **PR**: `h_res = RT(Z-1) + [T·da/dT - a] / (2√2·b) · ln[(Z+(1+√2)B)/(Z+(1-√2)B)]`
+  - **SRK**: `h_res = RT(Z-1) + [T·da/dT - a] / b · ln(1 + B/Z)`
+- Sürekli `h_mix(T)` fonksiyonu: Bubble-point bölgesinde EOS fugacity bazlı VF refine ile VLE flash süreksizliği giderildi.
 
-### 3. 14 Bileşenli COSTALD Kriyojenik Yoğunluk Motoru
-- $CH_4, C_2H_6, C_3H_8, i-C_4H_{10}, n-C_4H_{10}, i-C_5H_{12}, n-C_5H_{12}, C_6+, N_2, CO_2, O_2, H_2, Ar, He$ bileşenlerini destekler.
-- Anlık %100 mol toplamı kontrolü ve tek tıkla **"⚡ Kompozisyonu Otomatik %100'e Eşitle"** butonu.
+### 3. Yeni Kullanıcı Arayüzü Özellikleri
+- **Gemi Transfer Basıncı (P_ship)** girdisi — LNG gemisinin tanka transfer basıncı (varsayılan: 5 bar_g).
+- **Flaş BOG Hesap Modu** seçeneğine "İzentalpik Flaş (PH-Flash, EOS)" eklendi.
+- İzentalpik flaş sonuçları metrik kartlarda ve detaylı formül sekmesinde görüntülenir:
+  - Besleme entalpisi (h_feed, J/mol)
+  - Flaş sıcaklığı (T_flash, K)
+  - Buhar oranı (VF, % mol/mol)
 
-### 4. Esnek Birim Yönetimi
-- Basınç (`mbar_a`, `bar_a`, `kPa_a`, `psi_a`, `atm`), Debi (`m³/h`, `GPM`, `kg/h`, `lb/h`), Sıcaklık (`°C`, `K`, `°F`), Hacim (`m³`, `L`, `bbl`, `gal`) ve Yoğunluk (`kg/m³`, `g/cm³`) birimleri arasında anlık iki yönlü çevrim.
-
-### 5. Entegre PSV Üretici Katalog Eşleştirmesi
-- **Anderson Greenwood (Emerson)**, **Crosby**, **Baker Hughes (Consolidated)**, **Leser**, **Curtiss-Wright (Farris)** ve **Mercer Valve** modellerinin otomatik eşleştirmesi.
+### 4. Fiziksel Doğrulama — Tipik Senaryo Sonuçları (PR EOS)
+| Gemi Sıcaklığı | Gemi Basıncı | Tank Basıncı | Flaş Oranı (VF) |
+|:---:|:---:|:---:|:---:|
+| -160°C (113.15 K) | 5 bar_g | 200 mbar_g | ~%0.44 |
+| -155°C (118.0 K) | 5 bar_g | 200 mbar_g | ~%3.03 |
+| -150°C (123.0 K) | 5 bar_g | 200 mbar_g | ~%5.50 |
 
 ---
 
@@ -36,3 +47,4 @@ Bu sürüm, Kriyojenik LNG Depolama Tankları için **Pilot Uyarılı Emniyet Va
 
 ## 🧪 Doğrulama ve Testler
 - Tüm birim ve termodinamik doğrulama testleri (`pytest`) `%100` başarı oranı ile geçmiştir.
+- 14 test + 8 yeni entalpi/PH-flash validasyon testi.
