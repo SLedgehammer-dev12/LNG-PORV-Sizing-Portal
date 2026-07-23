@@ -1,121 +1,82 @@
-name: Build & Release (Windows + macOS Intel + macOS ARM)
+name: Build & Release (Windows + macOS)
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-exe:
-    name: Build (${{ matrix.os_name }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            os_name: Windows
-            artifact_name: LNG_PORV_Sizing_Windows
-            dist_path: dist/LNG_PORV_Sizing.exe
-            sep: ";"
-            flags: --windowed --noupx
-
-          - os: macos-13
-            os_name: macOS_Intel
-            artifact_name: LNG_PORV_Sizing_macOS_Intel
-            dist_path: dist/LNG_PORV_Sizing.app
-            sep: ":"
-            flags: --windowed
-
-          - os: macos-latest
-            os_name: macOS_ARM
-            artifact_name: LNG_PORV_Sizing_macOS_ARM
-            dist_path: dist/LNG_PORV_Sizing.app
-            sep: ":"
-            flags: --windowed
-
-    runs-on: ${{ matrix.os }}
-
+  build-windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: 'pip'}
+      - run: pip install -r requirements.txt pyinstaller pytest
+      - run: python -m pytest test_app.py test_unit_converter.py -v
+      - run: |
+          $S = python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))"
+          pyinstaller --noconfirm --onefile --windowed --noupx --name LNG_PORV_Sizing `
+            --add-data "app.py;." --add-data "psv_database.json;." --add-data "${S};streamlit/static" `
+            --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas `
+            --copy-metadata streamlit run_app.py
+      - uses: actions/upload-artifact@v4
+        with: {name: LNG_PORV_Sizing_Windows, path: dist/LNG_PORV_Sizing.exe, retention-days: 90}
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
+  build-macos-intel:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: 'pip'}
+      - run: pip install -r requirements.txt pyinstaller pytest
+      - run: python -m pytest test_app.py test_unit_converter.py -v
+      - run: |
+          S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
+          pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \
+            --add-data "app.py:." --add-data "psv_database.json:." --add-data "${S}:streamlit/static" \
+            --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
+            --copy-metadata streamlit run_app.py
+      - uses: actions/upload-artifact@v4
+        with: {name: LNG_PORV_Sizing_macOS_Intel, path: dist/LNG_PORV_Sizing.app, retention-days: 90}
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller pytest
-
-      - name: Run Tests
-        run: |
-          python -m pytest test_app.py test_unit_converter.py -v
-
-      - name: Build Executable
-        shell: ${{ matrix.os == 'windows-latest' && 'pwsh' || 'bash' }}
-        run: |
-          ST_STATIC=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
-          S="${{ matrix.sep }}"
-          pyinstaller --noconfirm --onefile ${{ matrix.flags }} \
-            --name LNG_PORV_Sizing \
-            --add-data "app.py${S}." \
-            --add-data "psv_database.json${S}." \
-            --add-data "${ST_STATIC}${S}streamlit/static" \
-            --collect-all streamlit \
-            --collect-all plotly \
-            --collect-all CoolProp \
-            --collect-data pandas \
-            --copy-metadata streamlit \
-            run_app.py
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.dist_path }}
-          retention-days: 90
+  build-macos-arm:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: 'pip'}
+      - run: pip install -r requirements.txt pyinstaller pytest
+      - run: python -m pytest test_app.py test_unit_converter.py -v
+      - run: |
+          S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
+          pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \
+            --add-data "app.py:." --add-data "psv_database.json:." --add-data "${S}:streamlit/static" \
+            --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
+            --copy-metadata streamlit run_app.py
+      - uses: actions/upload-artifact@v4
+        with: {name: LNG_PORV_Sizing_macOS_ARM, path: dist/LNG_PORV_Sizing.app, retention-days: 90}
 
   create-release:
-    needs: build-exe
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: [build-windows, build-macos-intel, build-macos-arm]
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
+        with: {path: artifacts}
+      - run: |
+          mkdir release
+          cp artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe release/LNG_PORV_Sizing_Windows.exe
+          cp -r artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app release/LNG_PORV_Sizing_Intel.app
+          cp -r artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app release/LNG_PORV_Sizing_ARM.app
+      - uses: softprops/action-gh-release@v2
         with:
-          path: release_artifacts
-
-      - name: Stage Release Files
-        run: |
-          mkdir -p release_files
-          if [ -f "release_artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe" ]; then
-            cp "release_artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe" "release_files/LNG_PORV_Sizing_Windows.exe"
-          fi
-          if [ -d "release_artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app" ]; then
-            cp -r "release_artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app" "release_files/LNG_PORV_Sizing_Intel.app"
-          fi
-          if [ -d "release_artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app" ]; then
-            cp -r "release_artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app" "release_files/LNG_PORV_Sizing_ARM.app"
-          fi
-
-      - name: Publish Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release_files/LNG_PORV_Sizing_Windows.exe
-            release_files/LNG_PORV_Sizing_Intel.app
-            release_files/LNG_PORV_Sizing_ARM.app
+          files: release/*
           body_path: RELEASE_NOTES.md
           name: LNG PORV Sizing Portal ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
