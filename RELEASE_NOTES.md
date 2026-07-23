@@ -47,14 +47,26 @@ Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motor
 
 ---
 
-## ⚙️ Windows Executable Kullanım Talimatı
+## ⚙️ Platform Çalıştırma Talimatı
 
-1. `LNG_PORV_Sizing.exe` dosyasını bilgisayarınıza indirin.
+### Windows
+1. `LNG_PORV_Sizing_Windows.exe` dosyasını indirin.
 2. Çift tıklayarak çalıştırın.
-3. Uygulama otomatik olarak web tarayıcınızda `http://localhost:8501` adresinde açılacaktır.
+3. Uygulama web tarayıcınızda `http://localhost:8501` adresinde açılır.
+
+### macOS (Intel)
+1. `LNG_PORV_Sizing_Intel.app` dosyasını indirin.
+2. Çift tıklayarak açın (ilk çalıştırmada Güvenlik ayarlarından izin vermeniz gerekebilir).
+3. Uygulama web tarayıcınızda `http://localhost:8501` adresinde açılır.
+
+### macOS (Apple Silicon / ARM)
+1. `LNG_PORV_Sizing_ARM.app` dosyasını indirin.
+2. Çift tıklayarak açın.
+3. Uygulama web tarayıcınızda `http://localhost:8501` adresinde açılır.
 
 ---
 
 ## 🧪 Doğrulama ve Testler
 - Tüm birim ve termodinamik doğrulama testleri (`pytest`) `%100` başarı oranı ile geçmiştir.
 - 14 test + 8 yeni entalpi/PH-flash validasyon testi.
+- Üç platformda da (Windows, macOS Intel, macOS ARM) otomatik build ve test.

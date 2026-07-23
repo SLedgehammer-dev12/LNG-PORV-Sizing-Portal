@@ -1,4 +1,4 @@
-name: Build Windows Single-File Executable & Create Release
+name: Build & Release (Windows + macOS Intel + macOS ARM)
 
 on:
   push:
@@ -12,13 +12,37 @@ permissions:
   contents: write
 
 jobs:
-  build-windows-exe:
-    name: Build LNG PORV Sizing Standalone EXE (Windows)
-    runs-on: windows-latest
+  build-exe:
+    name: Build (${{ matrix.os_name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            os_name: Windows
+            artifact_name: LNG_PORV_Sizing_Windows
+            dist_path: dist/LNG_PORV_Sizing.exe
+            sep: ";"
+            flags: --windowed --noupx
+
+          - os: macos-13
+            os_name: macOS_Intel
+            artifact_name: LNG_PORV_Sizing_macOS_Intel
+            dist_path: dist/LNG_PORV_Sizing.app
+            sep: ":"
+            flags: --windowed
+
+          - os: macos-latest
+            os_name: macOS_ARM
+            artifact_name: LNG_PORV_Sizing_macOS_ARM
+            dist_path: dist/LNG_PORV_Sizing.app
+            sep: ":"
+            flags: --windowed
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -32,29 +56,71 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller pytest
 
-      - name: Run Automated Verification Tests
+      - name: Run Tests
         run: |
           python -m pytest test_app.py test_unit_converter.py -v
 
-      - name: Build Standalone Windows Executable with PyInstaller
+      - name: Build Executable with PyInstaller
+        shell: ${{ matrix.os == 'windows-latest' && 'pwsh' || 'bash' }}
         run: |
-          $ST_STATIC = python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))"
-          pyinstaller --noconfirm --onefile --windowed --noupx --name LNG_PORV_Sizing --add-data "app.py;." --add-data "psv_database.json;." --add-data "${ST_STATIC};streamlit/static" --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas --copy-metadata streamlit run_app.py
+          ST_STATIC=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
+          S="${{ matrix.sep }}"
+          pyinstaller --noconfirm --onefile ${{ matrix.flags }} \
+            --name LNG_PORV_Sizing \
+            --add-data "app.py${S}." \
+            --add-data "psv_database.json${S}." \
+            --add-data "${ST_STATIC}${S}streamlit/static" \
+            --collect-all streamlit \
+            --collect-all plotly \
+            --collect-all CoolProp \
+            --collect-data pandas \
+            --copy-metadata streamlit \
+            run_app.py
 
-      - name: Upload Build Artifact to GitHub Actions
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LNG_PORV_Sizing_Windows_Executable
-          path: dist/LNG_PORV_Sizing.exe
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.dist_path }}
           retention-days: 90
 
-      - name: Publish GitHub Release (On Tag Push or Dispatch)
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+  create-release:
+    name: Create GitHub Release
+    needs: [build-exe]
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download All Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_artifacts
+
+      - name: Prepare Release Files
+        run: |
+          mkdir -p release_files
+          # Windows
+          if [ -f "release_artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe" ]; then
+            cp "release_artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe" "release_files/LNG_PORV_Sizing_Windows.exe"
+          fi
+          # macOS Intel
+          if [ -d "release_artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app" ]; then
+            cp -r "release_artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app" "release_files/LNG_PORV_Sizing_Intel.app"
+          fi
+          # macOS ARM
+          if [ -d "release_artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app" ]; then
+            cp -r "release_artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app" "release_files/LNG_PORV_Sizing_ARM.app"
+          fi
+          ls -la release_files/
+
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/LNG_PORV_Sizing.exe
+          files: release_files/**
           body_path: RELEASE_NOTES.md
-          name: LNG PORV Sizing Portal v1.0.1 (Windows Standalone EXE)
+          name: LNG PORV Sizing Portal ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false
