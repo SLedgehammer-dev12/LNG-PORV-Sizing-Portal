@@ -60,7 +60,7 @@ jobs:
         run: |
           python -m pytest test_app.py test_unit_converter.py -v
 
-      - name: Build Executable with PyInstaller
+      - name: Build Executable
         shell: ${{ matrix.os == 'windows-latest' && 'pwsh' || 'bash' }}
         run: |
           ST_STATIC=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
@@ -85,40 +85,37 @@ jobs:
           retention-days: 90
 
   create-release:
-    name: Create GitHub Release
-    needs: [build-exe]
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: build-exe
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download All Build Artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: release_artifacts
 
-      - name: Prepare Release Files
+      - name: Stage Release Files
         run: |
           mkdir -p release_files
-          # Windows
           if [ -f "release_artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe" ]; then
             cp "release_artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe" "release_files/LNG_PORV_Sizing_Windows.exe"
           fi
-          # macOS Intel
           if [ -d "release_artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app" ]; then
             cp -r "release_artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app" "release_files/LNG_PORV_Sizing_Intel.app"
           fi
-          # macOS ARM
           if [ -d "release_artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app" ]; then
             cp -r "release_artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app" "release_files/LNG_PORV_Sizing_ARM.app"
           fi
-          ls -la release_files/
 
-      - name: Publish GitHub Release
+      - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release_files/**
+          files: |
+            release_files/LNG_PORV_Sizing_Windows.exe
+            release_files/LNG_PORV_Sizing_Intel.app
+            release_files/LNG_PORV_Sizing_ARM.app
           body_path: RELEASE_NOTES.md
           name: LNG PORV Sizing Portal ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
