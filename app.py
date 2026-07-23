@@ -245,12 +245,14 @@ with input_tab2:
         comp_dict[k] = val
         
     st.subheader("4. Kriyojenik Sıcaklık Girdileri")
-    col_tlng, col_tlng_u = st.columns([3, 2])
-    with col_tlng:
-        T_lng_input = st.number_input("Sıvı LNG Sıcaklığı (T_LNG)", value=-160.0, step=1.0)
-    with col_tlng_u:
-        T_lng_unit = st.selectbox("Sıvı T Birimi", ['°C', 'K', '°F', '°R'], index=0)
-    T_lng_K = convert_temperature_to_kelvin(T_lng_input, T_lng_unit)
+    col_ttank, col_ttank_u = st.columns([3, 2])
+    with col_ttank:
+        T_tank_input = st.number_input("Tank LNG Sıcaklığı (T_tank)", value=-160.0, step=1.0,
+                                       help="Tankta bulunan LNG'nin sıcaklığı. COSTALD sıvı yoğunluğu bu sıcaklıkta hesaplanır.")
+    with col_ttank_u:
+        T_tank_unit = st.selectbox("Tank T Birimi", ['°C', 'K', '°F', '°R'], index=0, key="ttank_unit")
+    T_tank_K = convert_temperature_to_kelvin(T_tank_input, T_tank_unit)
+    T_cargo_K = T_tank_K  # default; overridden if cargo differs
     
     col_trel, col_trel_u = st.columns([3, 2])
     with col_trel:
@@ -267,11 +269,11 @@ with input_tab2:
     else:
         st.error(f"❌ Mol Toplamı: **%{total_composition_pct:.2f}** (Fazla: %{total_composition_pct - 100.0:.2f})")
         
-    costald_res = calculate_costald_density(comp_dict, temperature_k=T_lng_K)
+    costald_res = calculate_costald_density(comp_dict, temperature_k=T_tank_K)
     rho_lng_calculated = costald_res['density_kg_m3']
     M_mix_calculated = costald_res['molar_mass_g_mol']
     
-    st.info(f"**COSTALD Sıvı Yoğunluğu ({T_lng_input:.1f} {T_lng_unit})**: {rho_lng_calculated:.2f} kg/m³")
+    st.info(f"**COSTALD Sıvı Yoğunluğu ({T_tank_input:.1f} {T_tank_unit})**: {rho_lng_calculated:.2f} kg/m³")
     st.info(f"**Mol Kütlesi (M)**: {M_mix_calculated:.2f} g/mol")
     
     override_rho = st.checkbox("Sıvı Yoğunluğunu Manuel Değiştir", value=False)
@@ -325,6 +327,16 @@ with input_tab2:
                 for k in cargo_selected:
                     st.session_state[f"cargo_{k}"] = round((st.session_state.get(f"cargo_{k}", 0.0) / cargo_total) * 100.0, 3)
                 st.rerun()
+        # Kargo LNG sıcaklığı (tanktan farklı olabilir)
+        col_tcargo, col_tcargo_u = st.columns([3, 2])
+        with col_tcargo:
+            T_cargo_input = st.number_input("Kargo LNG Sıcaklığı (T_cargo)", value=T_tank_input, step=1.0,
+                                            help="Gemi kargosunun sıcaklığı. Tank sıcaklığından farklıysa buraya girilir.")
+        with col_tcargo_u:
+            T_cargo_unit = st.selectbox("Kargo T Birimi", ['°C', 'K', '°F', '°R'], index=0, key="tcargo_unit")
+        T_cargo_K = convert_temperature_to_kelvin(T_cargo_input, T_cargo_unit)
+    else:
+        T_cargo_K = T_tank_K
 
 with input_tab3:
     st.subheader("5. Gemi Transfer Basıncı (İzentalpik Flaş İçin)")
@@ -403,7 +415,8 @@ with st.sidebar.expander("💾 Konfigürasyon Kaydet/Yükle"):
             'P_atm_min_input': P_atm_min_input, 'P_atm_max_input': P_atm_max_input,
             'P_set_input': P_set_input, 'Overpressure_pct': Overpressure_pct,
             'N_working': N_working, 'N_spare': N_spare,
-            'T_lng_input': T_lng_input, 'T_relief_input': T_relief_input,
+            'T_tank_input': T_tank_input, 'T_cargo_input': T_cargo_input if cargo_diff else T_tank_input,
+            'T_relief_input': T_relief_input,
             'wetted_area_m2': wetted_area_m2, 'insulation_factor_F': insulation_factor_F,
             'flash_mode': flash_mode, 'bog_mode': bog_mode,
             'composition': {k: st.session_state.get(f"comp_{k}", v) for k, v in DEFAULT_VALS.items()},
@@ -435,7 +448,7 @@ with st.sidebar.expander("💾 Konfigürasyon Kaydet/Yükle"):
 
 def _compute_all_results(
     p_set_mbar, overpressure_pct, p_atm_min_mbar, p_atm_max_mbar,
-    q_fill_m3h, rho_lng_val, comp_dict_frozen, t_relief_K, t_lng_K,
+    q_fill_m3h, rho_lng_val, comp_dict_frozen, t_relief_K, t_cargo_K,
     t_fire_K, eos_code_val, n_working, flash_manual_mode_val,
     w_flash_manual_kg_h_val, flash_pct_val, w_bog_kg_h_val,
     bog_auto_mode_val, bor_pct_per_day_val,
@@ -467,7 +480,7 @@ def _compute_all_results(
     if is_isenthalpic_mode_val or flash_pct_val is None:
         isenthalpic_res = calculate_isenthalpic_flash(
             flash_comp,
-            t_feed_k=t_lng_K,
+            t_feed_k=t_cargo_K,
             p_feed_kPa_a=P_ship_kPa_a,
             p_flash_kPa_a=P_tank_kPa_a,
             eos=eos_code_val
@@ -574,7 +587,7 @@ try:
         p_atm_min_mbar=P_atm_min, p_atm_max_mbar=P_atm_max,
         q_fill_m3h=Q_fill, rho_lng_val=rho_lng,
         comp_dict_frozen=tuple(sorted(comp_dict.items())),
-        t_relief_K=T_relief_K, t_lng_K=T_lng_K, t_fire_K=T_fire_K,
+        t_relief_K=T_relief_K, t_cargo_K=T_cargo_K, t_fire_K=T_fire_K,
         eos_code_val=eos_code, n_working=N_working,
         flash_manual_mode_val=flash_manual_mode,
         w_flash_manual_kg_h_val=w_flash_manual_kg_h, flash_pct_val=manual_flash_pct,
@@ -683,7 +696,7 @@ with m_col1:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-value">{rho_lng:.1f} kg/m³</div>
-        <div class="metric-label">Sıvı LNG Yoğunluğu (ρ_LNG @ {T_lng_input:.1f} {T_lng_unit})</div>
+        <div class="metric-label">Sıvı LNG Yoğunluğu (ρ_LNG @ {T_tank_input:.1f} {T_tank_unit})</div>
     </div>
     """, unsafe_allow_html=True)
 
