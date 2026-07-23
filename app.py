@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import json
 import logging
 
 from lng_thermo import calculate_costald_density, calculate_vapor_density, COMPONENT_DATA
@@ -189,6 +190,13 @@ with input_tab1:
 DEFAULT_ACTIVE_COMPS = ['CH4', 'C2H6', 'C3H8', 'iC4H10', 'nC4H10', 'N2']
 DEFAULT_VALS = {'CH4': 90.50, 'C2H6': 5.50, 'C3H8': 2.50, 'iC4H10': 0.50, 'nC4H10': 0.50, 'N2': 0.50}
 
+# Initialize all composition session state keys early (for save/load)
+if 'active_components' not in st.session_state:
+    st.session_state['active_components'] = DEFAULT_ACTIVE_COMPS.copy()
+for c_key, val in DEFAULT_VALS.items():
+    if f"comp_{c_key}" not in st.session_state:
+        st.session_state[f"comp_{c_key}"] = val
+
 if 'active_components' not in st.session_state:
     st.session_state['active_components'] = DEFAULT_ACTIVE_COMPS.copy()
 
@@ -333,7 +341,7 @@ with input_tab3:
         "Flaş BOG Hesap Modu:",
         [        "İzentalpik Flaş (PH-Flash, EOS)", "EOS VLE Flaş Oranı (%V/F)", "Sabit Flaş Oranı (%)", "Manuel Debi Girişi"],
         index=0,
-        help="PH-Flash: Gemi LNG'sinin tank basıncına izentalpik genleşmesiyle GERÇEK flaş oranı (NFPA 59A / API 625 uyumlu). VLE Flash: Tank işletme koşullarında denge buhar oranı (dolum flaşı DEĞİL, referans amaçlı)."
+        help="İzentalpik flaş: Gemi LNG'sinin tank basıncına genleşmesiyle flaş oranı (NFPA 59A / API 625 uyumlu). VLE Flash: Aynı yöntem (izentalpik). Sabit oran/debi: manuel girdi."
     )
     
     if flash_mode == "Manuel Debi Girişi":
@@ -386,6 +394,43 @@ with input_tab3:
             w_bog_unit = st.selectbox("BOG Debi Birimi", list(MASS_FLOW_UNITS.keys()), index=0)
         w_bog_kg_h = convert_mass_flow_to_kg_h(w_bog_input, w_bog_unit)
 
+# Save/Load Configuration
+with st.sidebar.expander("💾 Konfigürasyon Kaydet/Yükle"):
+    col_save, col_load = st.columns(2)
+    with col_save:
+        _cfg = {
+            'eos_choice': eos_choice, 'V_n_input': V_n_input, 'Q_fill_input': Q_fill_input,
+            'P_atm_min_input': P_atm_min_input, 'P_atm_max_input': P_atm_max_input,
+            'P_set_input': P_set_input, 'Overpressure_pct': Overpressure_pct,
+            'N_working': N_working, 'N_spare': N_spare,
+            'T_lng_input': T_lng_input, 'T_relief_input': T_relief_input,
+            'wetted_area_m2': wetted_area_m2, 'insulation_factor_F': insulation_factor_F,
+            'flash_mode': flash_mode, 'bog_mode': bog_mode,
+            'composition': {k: st.session_state.get(f"comp_{k}", v) for k, v in DEFAULT_VALS.items()},
+        }
+        if cargo_comp_dict:
+            _cfg['cargo_composition'] = {k: st.session_state.get(f"cargo_{k}", v) for k, v in cargo_comp_dict.items()}
+        if bog_auto_mode:
+            _cfg['bor_pct_per_day'] = bor_pct_per_day
+        if flash_mode == "Manuel Debi Girişi":
+            _cfg['w_flash_input'] = w_flash_input
+        elif flash_mode == "Sabit Flaş Oranı (%)":
+            _cfg['manual_flash_pct'] = manual_flash_pct
+        st.download_button("📥 Kaydet", data=json.dumps(_cfg, indent=2), file_name="LNG_config.json", mime="application/json")
+    with col_load:
+        loaded_file = st.file_uploader("📂 Yükle", type="json", label_visibility="collapsed")
+        if loaded_file:
+            try:
+                loaded = json.loads(loaded_file.read().decode())
+                for k, v in loaded.get('composition', {}).items():
+                    st.session_state[f"comp_{k}"] = v
+                for k, v in loaded.get('cargo_composition', {}).items():
+                    st.session_state[f"cargo_{k}"] = v
+                st.success("✅ Yüklendi. Sayfayı yenileyin.")
+                st.rerun()
+            except Exception as ex:
+                st.error(f"Hata: {ex}")
+
 # --- CORE THERMODYNAMIC & RELIEF CALCULATIONS ---
 
 def _compute_all_results(
@@ -407,18 +452,19 @@ def _compute_all_results(
     P2_kPa_a = p_atm_min_mbar / 10.0
     P_tank_kPa_a = (p_set_mbar + p_atm_min_mbar) / 10.0
 
-    # VLE Flash at TANK OPERATING pressure (not relieving P1)
-    # This gives the equilibrium vapor fraction at normal tank conditions
+    # VLE Flash at TANK OPERATING conditions for Z, k, rho, M
     vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_relief_K, pressure_kPa_a=P_tank_kPa_a, eos=eos_code_val)
     Z_factor = vle_res['Z_gas']
     k_factor = vle_res['k_mix']
     rho_v = vle_res['rho_v_kg_m3']
     M_vapor = vle_res['M_vapor_g_mol']
 
-    # Isenthalpic (PH) Flash or fallback to PT-flash / manual
+    # Both "İzentalpik Flaş" and "EOS VLE Flaş Oranı" now use the same
+    # isenthalpic (PH) flash method for correct filling flash calculation.
+    # The VLE flash above is used only for Z, k, rho_v, M_vapor.
     isenthalpic_res = None
-    if is_isenthalpic_mode_val:
-        P_ship_kPa_a = (p_ship_mbar_g_val + p_atm_min_mbar) / 10.0
+    P_ship_kPa_a = (p_ship_mbar_g_val + p_atm_min_mbar) / 10.0
+    if is_isenthalpic_mode_val or flash_pct_val is None:
         isenthalpic_res = calculate_isenthalpic_flash(
             flash_comp,
             t_feed_k=t_lng_K,
@@ -428,7 +474,7 @@ def _compute_all_results(
         )
         effective_flash_pct = isenthalpic_res['flash_pct']
     else:
-        effective_flash_pct = vle_res['flash_pct'] if flash_pct_val is None else flash_pct_val
+        effective_flash_pct = flash_pct_val
 
     loads = calculate_relieving_loads(
         q_fill_m3_h=q_fill_m3h, rho_lng_kg_m3=rho_lng_val, rho_v_kg_m3=rho_v,
@@ -678,15 +724,15 @@ with m_col5:
             flash_tooltip = f"T_flash={isenthalpic_res['T_flash_K']:.2f}K"
         else:
             flash_tooltip = "⚠️ Yakınsama uyarısı"
-        flash_label = "İzentalpik Flaş Oranı (VF)"
     else:
-        flash_label = "VLE Flaş Buhar Oranı (V/F)"
         flash_value = f"%{vle_res['flash_pct']:.2f}"
         flash_tooltip = ""
+    flash_label = "Dolum Flaş Oranı (VF)"
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-value">{flash_value}</div>
         <div class="metric-label">{flash_label}</div>
+        <div class="metric-value" style="font-size:10px;color:#94a3b8">{flash_tooltip}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -710,10 +756,19 @@ filter_mode = st.radio(
 )
 
 matrix_df = pd.DataFrame(matrix)
-matrix_df = matrix_df.sort_values(by='coverage_pct', ascending=False)
+# Sort by orifice area ascending: smallest valve first
+matrix_df = matrix_df.sort_values(by='orifice_area_mm2', ascending=True)
 
 if filter_mode == "Yalnızca Uyumlu Vanaları Göster (Kapasite ≥ %100)":
     matrix_df = matrix_df[matrix_df['coverage_pct'] >= 100.0]
+# Always highlight the smallest valve with coverage >= 100%
+_eligible = matrix_df[matrix_df['coverage_pct'] >= 100.0].sort_values('orifice_area_mm2')
+if not _eligible.empty:
+    _best_size = _eligible.iloc[0]['size_name']
+    _best_area = _eligible.iloc[0]['orifice_area_mm2']
+    st.success(f"✅ En küçük uygun vana: **{_best_size}** ({_best_area:,.0f} mm², {_eligible.iloc[0]['coverage_pct']:.1f}% kapasite)")
+else:
+    st.warning("⚠️ Kapasite ≥ %100 şartını sağlayan vana bulunamadı.")
 
 matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
 matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']

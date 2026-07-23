@@ -506,13 +506,18 @@ def calculate_h_total_mixture(
     temperature_k: float,
     pressure_kPa_a: float,
     eos: str = 'PR',
-    phase: str = 'vapor'
+    phase: str = 'vapor',
+    _isenthalpic_consistent: bool = False
 ) -> float:
     """
     Total molar enthalpy h_total(T,P) in J/mol for a mixture.
     PR/SRK:  h_total = h_ideal + h_residual
-    HEOS:    h_total from CoolProp PropsSI('Hmolar')
+    HEOS:    h_total from CoolProp PropsSI('Hmolar') (different ref state!)
     IDEAL:   h_total = h_ideal
+
+    When _isenthalpic_consistent=True and eos is HEOS or IDEAL,
+    falls back to PR for enthalpy to keep reference state consistent
+    with the isenthalpic flash bisection (which uses PR/SRK internally).
     """
     total_pct = sum(composition_mol.values())
     if total_pct <= 0:
@@ -524,6 +529,11 @@ def calculate_h_total_mixture(
     P_Pa = pressure_kPa_a * 1000.0
     T = max(30.0, temperature_k)
 
+    # For isenthalpic flash consistency: HEOS/IDEAL fall back to PR for enthalpy
+    # to avoid CoolProp vs PR reference state mismatch
+    if _isenthalpic_consistent and eos.upper() in ('HEOS', 'GERG2008', 'IDEAL'):
+        return calculate_h_total_mixture(x, T, pressure_kPa_a, eos='PR', phase=phase)
+
     if eos.upper() in ('HEOS', 'GERG2008'):
         try:
             import CoolProp.CoolProp as CP
@@ -533,7 +543,7 @@ def calculate_h_total_mixture(
                 h_total = CP.PropsSI('Hmolar', 'T', T, 'P', P_Pa, fluid_str)
                 return float(h_total)
         except Exception as err:
-            logger.warning(f"CoolProp HEOS enthalpy error, falling back to PR: {err}")
+            logger.debug(f"CoolProp HEOS enthalpy error at T={T:.2f}K, falling back to PR: {err}")
 
     h_ideal = calculate_h_ideal_mixture(x, T)
 
@@ -686,8 +696,9 @@ def _compute_h_mix(
     x = vle['x_liquid'] if vle['x_liquid'] else z_frac
     y = vle['y_vapor'] if vle['y_vapor'] else z_frac
 
-    if vf <= 0.0 and eos.upper() in ('PR', 'SRK'):
-        K_eos = _compute_robust_vle_k_values(z_frac, temperature_k, pressure_kPa_a, eos=eos)
+    if vf <= 0.0:
+        eos_for_refine = 'PR' if eos.upper() in ('HEOS', 'GERG2008', 'IDEAL') else eos
+        K_eos = _compute_robust_vle_k_values(z_frac, temperature_k, pressure_kPa_a, eos=eos_for_refine)
         if K_eos:
             def rr(vf_val):
                 s = 0.0
@@ -719,12 +730,12 @@ def _compute_h_mix(
                     y = {c: v / sy for c, v in y.items()} if sy > 0 else z_frac
 
     if vf <= 0.0:
-        h = calculate_h_total_mixture(x, temperature_k, pressure_kPa_a, eos=eos, phase='liquid')
+        h = calculate_h_total_mixture(x, temperature_k, pressure_kPa_a, eos=eos, phase='liquid', _isenthalpic_consistent=True)
     elif vf >= 1.0:
-        h = calculate_h_total_mixture(y, temperature_k, pressure_kPa_a, eos=eos, phase='vapor')
+        h = calculate_h_total_mixture(y, temperature_k, pressure_kPa_a, eos=eos, phase='vapor', _isenthalpic_consistent=True)
     else:
-        hl = calculate_h_total_mixture(x, temperature_k, pressure_kPa_a, eos=eos, phase='liquid')
-        hv = calculate_h_total_mixture(y, temperature_k, pressure_kPa_a, eos=eos, phase='vapor')
+        hl = calculate_h_total_mixture(x, temperature_k, pressure_kPa_a, eos=eos, phase='liquid', _isenthalpic_consistent=True)
+        hv = calculate_h_total_mixture(y, temperature_k, pressure_kPa_a, eos=eos, phase='vapor', _isenthalpic_consistent=True)
         h = vf * hv + (1.0 - vf) * hl
 
     return h, vf, x, y
@@ -759,17 +770,7 @@ def calculate_isenthalpic_flash(
     P_feed = max(1.0, p_feed_kPa_a)
     P_flash = max(1.0, p_flash_kPa_a)
 
-    h_feed = calculate_h_total_mixture(z, T_feed, P_feed, eos=eos, phase='liquid')
-
-    if eos.upper() == 'IDEAL':
-        vle = calculate_two_phase_vle_flash(z, T_feed, P_flash, eos=eos)
-        return {
-            'v_frac_VF': vle['v_frac_VF'],
-            'flash_pct': vle['flash_pct'],
-            'T_flash_K': T_feed, 'h_feed_J_mol': h_feed,
-            'y_vapor': vle['y_vapor'], 'x_liquid': vle['x_liquid'],
-            'eos_used': eos.upper(), 'converged': True
-        }
+    h_feed = calculate_h_total_mixture(z, T_feed, P_feed, eos=eos, phase='liquid', _isenthalpic_consistent=True)
 
     h_low, vf_low, _, _ = _compute_h_mix(z, t_min_k, P_flash, eos=eos)
     h_high, vf_high, _, _ = _compute_h_mix(z, t_max_k, P_flash, eos=eos)
