@@ -44,8 +44,9 @@ jobs:
             --icon icons/icon.icns \
             --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
             --copy-metadata streamlit run_app.py
+          ditto -c -k --sequesterRsrc --keepParent dist/LNG_PORV_Sizing.app dist/LNG_PORV_Sizing.app.zip
       - uses: actions/upload-artifact@v4
-        with: {name: LNG_PORV_Sizing_macOS_Intel, path: dist/LNG_PORV_Sizing.app, retention-days: 90}
+        with: {name: LNG_PORV_Sizing_macOS_Intel, path: dist/LNG_PORV_Sizing.app.zip, retention-days: 90}
 
   build-macos-arm:
     runs-on: macos-latest
@@ -61,8 +62,9 @@ jobs:
             --add-data "app.py:." --add-data "psv_database.json:." --add-data "${S}:streamlit/static" \
             --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
             --copy-metadata streamlit run_app.py
+          ditto -c -k --sequesterRsrc --keepParent dist/LNG_PORV_Sizing.app dist/LNG_PORV_Sizing.app.zip
       - uses: actions/upload-artifact@v4
-        with: {name: LNG_PORV_Sizing_macOS_ARM, path: dist/LNG_PORV_Sizing.app, retention-days: 90}
+        with: {name: LNG_PORV_Sizing_macOS_ARM, path: dist/LNG_PORV_Sizing.app.zip, retention-days: 90}
 
   create-release:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
@@ -75,10 +77,10 @@ jobs:
       - run: |
           mkdir release
           cp artifacts/LNG_PORV_Sizing_Windows/LNG_PORV_Sizing.exe release/LNG_PORV_Sizing_Windows.exe
-          cp -r artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app release/LNG_PORV_Sizing_ARM.app
+          cp artifacts/LNG_PORV_Sizing_macOS_ARM/LNG_PORV_Sizing.app.zip release/LNG_PORV_Sizing_ARM.app.zip
           # macOS Intel build'i best-effort: runner müsait olursa release'e eklenir
-          if [ -d artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app ]; then
-            cp -r artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app release/LNG_PORV_Sizing_Intel.app
+          if [ -f artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app.zip ]; then
+            cp artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app.zip release/LNG_PORV_Sizing_Intel.app.zip
           fi
       - uses: softprops/action-gh-release@v2
         with:
