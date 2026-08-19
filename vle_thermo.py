@@ -796,6 +796,35 @@ def calculate_isenthalpic_flash(
     x_mid, y_mid = z, z
     converged, T_mid, vf_mid = False, 0.5 * (T_low + T_high), 0.0
 
+    # For near-pure compositions (e.g. single component), the two-phase
+    # region is a single temperature (T_sat). Detect and solve directly.
+    _nc = sum(1 for c in z if z[c] > 0.001)
+    if _nc <= 1 or max(z.values()) > 0.995:
+        # Find phase boundary: scan for T where VF transitions from 0 to 1
+        _T_probe = T_low
+        _step = 0.5
+        _vf_prev = 0.0
+        _T_sat = None
+        while _T_probe < T_high:
+            _, vf_p, _, _ = _compute_h_mix(z, _T_probe, P_flash, eos=eos)
+            if vf_p > 0.001:
+                _T_sat = _T_probe
+                break
+            _T_probe += _step
+        if _T_sat is not None:
+            h_liq_sat = calculate_h_total_mixture(z, _T_sat, P_flash, eos=eos, phase='liquid', _isenthalpic_consistent=True)
+            h_vap_sat = calculate_h_total_mixture(z, _T_sat, P_flash, eos=eos, phase='vapor', _isenthalpic_consistent=True)
+            if h_liq_sat < h_feed < h_vap_sat and (h_vap_sat - h_liq_sat) > 1e-6:
+                vf_sat = (h_feed - h_liq_sat) / (h_vap_sat - h_liq_sat)
+                return {
+                    'v_frac_VF': max(0.0, min(1.0, vf_sat)),
+                    'flash_pct': max(0.0, min(100.0, vf_sat * 100.0)),
+                    'T_flash_K': _T_sat,
+                    'h_feed_J_mol': h_feed,
+                    'y_vapor': z, 'x_liquid': z,
+                    'eos_used': eos.upper(), 'converged': True
+                }
+
     for iteration in range(max_iter):
         T_mid = 0.5 * (T_low + T_high)
         h_mid, vf_mid, x_mid, y_mid = _compute_h_mix(z, T_mid, P_flash, eos=eos)
