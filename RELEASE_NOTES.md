@@ -1,10 +1,20 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.1 (Windows EXE + macOS ARM)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.2 (Windows EXE + macOS ARM)
 
-Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motoru** eklenmiş, NFPA 59A Madde 8.4.10.5.1(5) ve API 625 Madde 7.4.2.4(f)-(g) standartlarına tam uyumlu güncellemedir. LNG gemisinden tanka girişteki izentalpik genleşme (Joule-Thomson etkisi) artık dört farklı durum denklemi (PR, SRK, HEOS/GERG-2008, Ideal Gas) ile modellenebilmektedir.
+Bu sürüm, **v1.0.1** üzerindeki hesaplama düzeltmesini ve derleme/dağıtım iyileştirmelerini içerir.
 
 ---
 
-## 📋 Sürüm Öne Çıkanları (Release Highlights)
+## 🐛 v1.0.2'de Düzeltilenler
+
+- **Pure/Near-Pure Kompozisyon Flaş Düzeltmesi**: Tek bileşenli veya %99.5'ten yüksek tek bileşen içeren kompozisyonlarda (ör. %100 CH₄) izentalpik flaş, iki-fazlı bölgenin tekil sıcaklıkta (T_sat) çökmesi nedeniyle VF=0 verebiliyordu. Artık bu durumlarda faz sınırı tespit edilip **doğrudan enerji dengesi** (h_feed = VF·h_vap + (1-VF)·h_liq) ile çözülüyor.
+- **Build/Dağıtım İyileştirmeleri**:
+  - macOS `.app` bundle'ları GitHub Actions'ta `ditto` ile zip'lenerek yayınlanıyor (artifact flattening sorunu giderildi).
+  - `macos-13` (Intel) runner'ı meşgulken release oluşumu artık bloklanmıyor; Intel build'i best-effort olarak çalışıyor.
+  - **macOS ARM build** artık release'e dahil (önceki sürümde yalnızca Windows vardı).
+
+---
+
+## 📋 v1.0.1 Öne Çıkanları (önceki sürümden korunur)
 
 ### 1. İzentalpik Flaş (PH-Flash) Termodinamik Motoru
 - **PR (Peng-Robinson 1976)**: Residual entalpi + ideal gaz Cp entegrasyonu ile h_total(T,P).
