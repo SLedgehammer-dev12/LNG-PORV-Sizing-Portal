@@ -1,4 +1,4 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.1 (Windows Release)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.1 (Windows EXE + macOS ARM)
 
 Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motoru** eklenmiş, NFPA 59A Madde 8.4.10.5.1(5) ve API 625 Madde 7.4.2.4(f)-(g) standartlarına tam uyumlu güncellemedir. LNG gemisinden tanka girişteki izentalpik genleşme (Joule-Thomson etkisi) artık dört farklı durum denklemi (PR, SRK, HEOS/GERG-2008, Ideal Gas) ile modellenebilmektedir.
 
@@ -65,13 +65,13 @@ Bu sürüm, flaş gazlaşması hesaplamasına **İzentalpik (PH-Flash) EOS motor
 3. Uygulama web tarayıcınızda `http://localhost:8501` adresinde açılır.
 
 ### macOS (Intel)
-1. `LNG_PORV_Sizing_Intel.app` dosyasını indirin.
-2. Çift tıklayarak açın (ilk çalıştırmada Güvenlik ayarlarından izin vermeniz gerekebilir).
+1. `LNG_PORV_Sizing_Intel.app.zip` dosyasını indirin (Intel runner müsait olduğunda yayınlanır).
+2. ZIP'i açın ve `LNG_PORV_Sizing_Intel.app` dosyasını çift tıklayarak çalıştırın (ilk çalıştırmada Güvenlik ayarlarından izin vermeniz gerekebilir).
 3. Uygulama web tarayıcınızda `http://localhost:8501` adresinde açılır.
 
 ### macOS (Apple Silicon / ARM)
-1. `LNG_PORV_Sizing_ARM.app` dosyasını indirin.
-2. Çift tıklayarak açın.
+1. `LNG_PORV_Sizing_ARM.app.zip` dosyasını indirin.
+2. ZIP'i açın ve `LNG_PORV_Sizing_ARM.app` dosyasını çift tıklayarak çalıştırın.
 3. Uygulama web tarayıcınızda `http://localhost:8501` adresinde açılır.
 
 ---
