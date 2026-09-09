@@ -182,7 +182,10 @@ def evaluate_valve_matrix(
         capacity_m3_h = calculate_valve_capacity(area, P1_kPa_a, K_d=kd_val)
         coverage_pct = (capacity_m3_h / q_a_per_valve_m3_h) * 100.0
         
-        if coverage_pct >= 110.0:
+        if coverage_pct > 200.0:
+            status = '⚠️ AŞIRI BÜYÜK (>%200 Oversizing / Chattering Riski)'
+            status_code = 'OVERSIZED'
+        elif coverage_pct >= 110.0:
             status = '✅ UYGUN (Emniyet Marjlı)'
             status_code = 'SUCCESS'
         elif coverage_pct >= 100.0:

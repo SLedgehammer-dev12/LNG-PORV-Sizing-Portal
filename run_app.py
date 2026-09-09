@@ -81,7 +81,7 @@ def ask_user_launch_url() -> str:
             except Exception:
                 pass
         
-        lbl_title = ttk.Label(root, text="⚓ LNG PORV Sizing Portalı v1.1.0", font=("Segoe UI", 12, "bold"))
+        lbl_title = ttk.Label(root, text="⚓ LNG PORV Sizing Portalı v1.2.0", font=("Segoe UI", 12, "bold"))
         lbl_title.pack(pady=(15, 5))
         
         lbl_msg = ttk.Label(root, text="Uygulama varsayılan web tarayıcınızda hangi adreste açılsın?", font=("Segoe UI", 9))

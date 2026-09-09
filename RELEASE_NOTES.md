@@ -1,10 +1,37 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.1.0 (Windows EXE + macOS)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.2.0 (Windows EXE + macOS)
 
-Bu sürüm; **İzentalpik PH-Flash (Joule-Thomson $h_1 = h_2$)** termodinamik motorunu, genişletilmiş kriyojenik vana kataloğunu, %90 üzeri kapasiteye sahip tüm vanaların listelenmesi modunu, otomatik doygunluk sıcaklığı çözücüsünü ve güncelleme yönetimi kontrolünü içerir.
+Bu sürüm; **standart orifis karşılaştırma matrisinde ve katalog seçiminde %500-%800 aşırı boyutlandırılmış (oversized) vanaların elenmesini**, API 520 Part II ilkelerine uygun **%90 - %200 kapasite filtreleme penceresini**, 12 dünya markasına ve 97 kriyojenik modele genişletilen vana veritabanını ve optimize edilen mühendislik raporlarını içerir.
 
 ---
 
-## 🌟 v1.1.0 Öne Çıkan Yenilikler
+## 🌟 v1.2.0 Öne Çıkan Yenilikler
+
+### 1. %90 - %200 Kapasite Filtreleme Penceresi (Aşırı Boyutlandırma / Chattering Önleme)
+- **%500 - %800 Aşırı Kapasiteli Vanaların Elenmesi**: Matriste ihtiyacın katbekat üzerinde olan ve chattering / flutter riski yaratan vanalar filtrelenmiştir.
+- **"Tüm Uygun Vanaları Göster" Modu**: Gerekli debinin **%90'ı ile %200'ü** arasındaki modelleri listeler (`90.0% <= coverage_pct <= 200.0%`).
+- **"Yalnızca Uyumlu Vanaları Göster" Modu**: Gerekli debinin **%100'ü ile %200'ü** arasındaki tam uyumlu modelleri listeler (`100.0% <= coverage_pct <= 200.0%`).
+- **API 520 Part II Güvenlik Uyarısı**: Kapasitesi %200'ün üzerinde olan modeller için `OVERSIZED` durum kodu ve aşırı boyutlandırma güvenlik notu entegre edilmiştir.
+- **Sınır Durum Fallback Koruması**: Aşırı düşük veya aşırı yüksek debi senaryolarında boş tablo oluşmaması için en yakın modeller bilgilendirme mesajıyla gösterilir.
+
+### 2. Genişletilmiş Kriyojenik Vana Üretici ve Model Havuzu (97 Vana, 12 Üretici)
+Vana veritabanı 12 küresel kriyojenik üreticiye ve **97 modele** (2"x3"ten 20"x24"e kadar) genişletilmiştir:
+- **Fukui Seisakusho (Fukui Valve, Japonya)**: Dünyanın önde gelen LNG depolama ve taşıma vanası üreticisi; Series PSL (Pilot Operated) ve Series PSL-MD (Modulating Cryogenic Pilot) modelleri.
+- **Birkett (Emerson / Pentair, BK)**: Series WB tam nozul kriyojenik yaylı ve pilotlu emniyet vanaları.
+- **Parker Bestobell (Parker Hannifin, BK)**: Series FL50 kriyojenik LNG ve termal emniyet vanaları.
+- **Herose (Almanya)**: Type 06800 / 06500 büyük çaplı (6"x8" - 12"x16") kriyojenik emniyet vanaları.
+- **Leser (Almanya)**: Series 810 POSV modüllü pilot kumandalı kriyojenik vanalar.
+- **Anderson Greenwood, Consolidated, Crosby, Farris, Mercer, Bopp & Reuther, Weir Sebim**: Mevcut seriler ara çaplar ile zenginleştirildi.
+
+### 3. Vana Görünüm Filtresi ve Raporlama Senkronizasyonu
+- Section 1 (Standart Orifis Alanı Karşılaştırma Matrisi) ve Section 2 (Ticari Üretici Kataloğu) filtreleri tam senkronize çalışır hale getirildi.
+- Yangın Senaryosu (Fire Case) matrisi de %90-%200 filtreleme kurallarına bağlandı.
+- HTML mühendislik hesap raporu tabloları %90-%200 kuralına göre filtrelenerek raporların sade ve odaklı olması sağlandı.
+
+---
+
+# 🚀 Önceki Sürümler
+
+## v1.1.0 Öne Çıkan Yenilikler
 
 ### 1. İzentalpik PH-Flash ve EOS Entalpi Altyapısı
 - **Joule-Thomson Genleşmesi ($h_1 = h_2$)**: Gemi/transfer hattı koşullarından ($P_{\text{gemi}} \approx 4-8\text{ bar}_g$) tank basıncına ($P_{\text{tank}} \approx 200\text{ mbar}_g$) doğru gerçekleşen izentalpik genleşme tam entalpi dengesiyle modellenmiştir.

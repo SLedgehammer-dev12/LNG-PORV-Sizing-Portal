@@ -96,7 +96,7 @@ st.markdown("""
 # Header Section
 st.markdown("""
 <div class="main-header">
-    <div class="main-title">⚓ LNG PORV Emniyet Vanası Boyutlandırma Portalı <span style="font-size: 15px; color: #38bdf8; font-weight: 500;">v1.1.0</span></div>
+    <div class="main-title">⚓ LNG PORV Emniyet Vanası Boyutlandırma Portalı <span style="font-size: 15px; color: #38bdf8; font-weight: 500;">v1.2.0</span></div>
     <div class="sub-title">Çoklu EOS (PR / SRK / GERG-2008), İzentalpik PH-Flaş (h₁=h₂), Dinamik k(T,P), COSTALD Termodinamik ve API 520 Analiz Portalı</div>
 </div>
 """, unsafe_allow_html=True)
@@ -787,27 +787,46 @@ st.caption(f"Min. Sahadaki Atmosferik Basınç ({P_atm_min:.2f} mbar_a) ve Relie
 
 filter_mode = st.radio(
     "Vana Görünüm Filtresi:",
-    ["Tüm Vanaları Göster", "Yalnızca Uyumlu Vanaları Göster (Kapasite ≥ %100)"],
+    ["Tüm Uygun Vanaları Göster (%90 - %200 Kapasite)", "Yalnızca Uyumlu Vanaları Göster (%100 - %200 Kapasite)"],
     index=0,
-    horizontal=True
+    horizontal=True,
+    help="Kriyojenik emniyet prensipleri ve API 520 Part II uyarınca, %90 altı yetersiz, %200 üzeri ise aşırı boyutlandırılmış (chattering / flutter riski) vanalar filtrelenir."
 )
 
 matrix_df = pd.DataFrame(matrix)
 # Sort by orifice area ascending: smallest valve first
 matrix_df = matrix_df.sort_values(by='orifice_area_mm2', ascending=True)
 
-if filter_mode == "Yalnızca Uyumlu Vanaları Göster (Kapasite ≥ %100)":
-    matrix_df = matrix_df[matrix_df['coverage_pct'] >= 100.0]
-# Always highlight the smallest valve with coverage >= 100%
-_eligible = matrix_df[matrix_df['coverage_pct'] >= 100.0].sort_values('orifice_area_mm2')
+if filter_mode == "Yalnızca Uyumlu Vanaları Göster (%100 - %200 Kapasite)":
+    filtered_matrix_df = matrix_df[(matrix_df['coverage_pct'] >= 100.0) & (matrix_df['coverage_pct'] <= 200.0)]
+else:
+    filtered_matrix_df = matrix_df[(matrix_df['coverage_pct'] >= 90.0) & (matrix_df['coverage_pct'] <= 200.0)]
+
+# Fallback for extreme cases (very low or very high flow)
+if filtered_matrix_df.empty and not matrix_df.empty:
+    if matrix_df['coverage_pct'].min() > 200.0:
+        st.info("ℹ️ Girilen tahliye debisi çok düşük olduğundan tüm vana modelleri %200 kapasite sınırının üzerindedir. En küçük mevcut modeller referans olarak listelenmiştir:")
+        filtered_matrix_df = matrix_df.head(3)
+    elif matrix_df['coverage_pct'].max() < 90.0:
+        st.warning("⚠️ Girilen tahliye debisi çok yüksek olduğundan mevcut vanalar tek başına %90 kapasiteye ulaşamamaktadır. Lütfen vana adedini (N_working) artırınız:")
+        filtered_matrix_df = matrix_df.tail(3)
+
+# Always highlight the smallest valve with coverage >= 100% (within <= 200% preferred)
+_eligible = matrix_df[(matrix_df['coverage_pct'] >= 100.0) & (matrix_df['coverage_pct'] <= 200.0)].sort_values('orifice_area_mm2')
 if not _eligible.empty:
     _best_size = _eligible.iloc[0]['size_name']
     _best_area = _eligible.iloc[0]['orifice_area_mm2']
-    st.success(f"✅ En küçük uygun vana: **{_best_size}** ({_best_area:,.0f} mm², {_eligible.iloc[0]['coverage_pct']:.1f}% kapasite)")
+    st.success(f"✅ En küçük uygun vana: **{_best_size}** ({_best_area:,.0f} mm², %{_eligible.iloc[0]['coverage_pct']:.1f} kapasite)")
 else:
-    st.warning("⚠️ Kapasite ≥ %100 şartını sağlayan vana bulunamadı.")
+    _any_eligible = matrix_df[matrix_df['coverage_pct'] >= 100.0].sort_values('orifice_area_mm2')
+    if not _any_eligible.empty:
+        _best_size = _any_eligible.iloc[0]['size_name']
+        _best_area = _any_eligible.iloc[0]['orifice_area_mm2']
+        st.info(f"ℹ️ En küçük vana: **{_best_size}** ({_best_area:,.0f} mm², %{_any_eligible.iloc[0]['coverage_pct']:.1f} kapasite)")
+    else:
+        st.warning("⚠️ Kapasite ≥ %100 şartını sağlayan vana bulunamadı.")
 
-matrix_df_display = matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
+matrix_df_display = filtered_matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
 matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
 
 st.dataframe(
@@ -824,8 +843,20 @@ if governing_is_fire:
     st.caption(f"Yangın Tahliye Sıcaklığı: {T_fire_input:.1f} {T_fire_unit} | Q_fire = {fire_res['q_fire_kW']:,.1f} kW | W_fire = {fire_res['w_fire_kg_h']:,.1f} kg/h | K_d = 1.0")
 
     gov_df = pd.DataFrame(governing_matrix)
-    gov_df = gov_df.sort_values(by='coverage_pct', ascending=False)
-    gov_df_display = gov_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
+    gov_df = gov_df.sort_values(by='orifice_area_mm2', ascending=True)
+
+    if filter_mode == "Yalnızca Uyumlu Vanaları Göster (%100 - %200 Kapasite)":
+        filtered_gov_df = gov_df[(gov_df['coverage_pct'] >= 100.0) & (gov_df['coverage_pct'] <= 200.0)]
+    else:
+        filtered_gov_df = gov_df[(gov_df['coverage_pct'] >= 90.0) & (gov_df['coverage_pct'] <= 200.0)]
+
+    if filtered_gov_df.empty and not gov_df.empty:
+        if gov_df['coverage_pct'].min() > 200.0:
+            filtered_gov_df = gov_df.head(3)
+        elif gov_df['coverage_pct'].max() < 90.0:
+            filtered_gov_df = gov_df.tail(3)
+
+    gov_df_display = filtered_gov_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
     gov_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
 
     st.dataframe(
@@ -933,22 +964,30 @@ with exp4:
 
 # Main Section 2: Commercial Manufacturer PSV Database Matching
 st.header("2. Entegre PSV Üretici Vana Kataloğu Eşleştirmesi")
-st.caption("Anderson Greenwood, Crosby, Consolidated, Leser, Farris ve Mercer marka katalog modellerinin sorgu sonuçları:")
+st.caption("Anderson Greenwood, Crosby, Consolidated, Leser, Farris, Fukui Seisakusho, Birkett, Herose, Parker Bestobell, Bopp & Reuther, Weir Sebim ve Mercer marka katalog modellerinin sorgu sonuçları:")
 
 col_v_toggle, col_v_info = st.columns([3, 2])
 with col_v_toggle:
     show_all_valves = st.checkbox(
-        "🔍 Tüm Vanaları Göster (Kapasite Oranı ≥ %90 Olan Modeller)",
+        "🔍 Tüm Uygun Vanaları Göster (%90 - %200 Kapasite)",
         value=True,
-        help="İşaretlendiğinde kapasite oranı %90.0'ın üzerinde olan tüm ticari modeller (sınırda uygun ve tam uygun) listelenir. İşaret kaldırıldığında sadece %100 ve üzeri modeller gösterilir."
+        help="İşaretlendiğinde kapasite oranı %90.0 ile %200.0 arasındaki modeller listelenir (%500-%800 aşırı büyük modeller filtrelenir). İşaret kaldırıldığında sadece %100 - %200 arası modeller gösterilir."
     )
 with col_v_info:
-    st.info("💡 %90 - %100 aralığındaki vanalar düşük marjlı sınırda alternatif modellerdir.")
+    st.info("💡 %90 - %100 aralığı sınırda modellerdir. %200'den büyük aşırı boyutlandırılmış modeller (oversized / chattering riski) filtrelenmiştir.")
 
 if show_all_valves:
-    filtered_valves = [v for v in matched_valves if v['coverage_pct'] >= 90.0]
+    filtered_valves = [v for v in matched_valves if 90.0 <= v['coverage_pct'] <= 200.0]
 else:
-    filtered_valves = [v for v in matched_valves if v['coverage_pct'] >= 100.0]
+    filtered_valves = [v for v in matched_valves if 100.0 <= v['coverage_pct'] <= 200.0]
+
+if not filtered_valves and matched_valves:
+    if all(v['coverage_pct'] > 200.0 for v in matched_valves):
+        st.info("ℹ️ Girilen tahliye debisi çok düşük olduğundan tüm modeller %200 üzerindedir. En küçük modeller listelenmiştir:")
+        filtered_valves = sorted(matched_valves, key=lambda x: x['coverage_pct'])[:3]
+    elif all(v['coverage_pct'] < 90.0 for v in matched_valves):
+        st.warning("⚠️ Yüksek debi nedeniyle hiçbir model %90 kapasiteye ulaşamamaktadır. Vana adedini (N) artırınız.")
+        filtered_valves = sorted(matched_valves, key=lambda x: -x['coverage_pct'])[:3]
 
 matched_df = pd.DataFrame(filtered_valves)
 if not matched_df.empty:

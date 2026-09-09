@@ -34,12 +34,14 @@ def search_matching_valves(
     required_air_capacity_m3_h: float = 26419.5,
     P1_kPa_a: float = 117.003,
     min_coverage_pct: float = 100.0,
+    max_coverage_pct: float = 200.0,
     cryogenic_only: bool = True,
     show_all_above_90: bool = False
 ) -> list:
     """
     Filters and ranks commercial valve models by coverage percentage and capacity.
-    If show_all_above_90 is True, includes all models with coverage_pct >= 90.0%.
+    If show_all_above_90 is True, includes models with 90.0% <= coverage_pct <= max_coverage_pct.
+    Valves with coverage_pct > max_coverage_pct (oversized >200%) are filtered out by default.
     """
     valves = load_psv_database()
     matched_results = []
@@ -59,8 +61,15 @@ def search_matching_valves(
         # When show_all_above_90 is requested, skip valves strictly below 90%
         if show_all_above_90 and coverage_pct < 90.0:
             continue
+            
+        # Filter out valves exceeding max_coverage_pct (>200% oversizing risk)
+        if max_coverage_pct is not None and coverage_pct > max_coverage_pct:
+            continue
         
-        if coverage_pct >= 110.0:
+        if coverage_pct > 200.0:
+            status = '⚠️ AŞIRI BÜYÜK (>%200 Oversizing Riski)'
+            recommendation_level = 5
+        elif coverage_pct >= 110.0:
             status = '🌟 TAM UYGUN (Tavsiye Edilir)'
             recommendation_level = 1
         elif coverage_pct >= 100.0:
@@ -70,7 +79,7 @@ def search_matching_valves(
             status = '⚠️ YAKIN KAPASİTE (%90-%100 Sınırda/Kritik)'
             recommendation_level = 3
         else:
-            status = '❌ YETERSİZ (4+1 Vana Düzeni Veya 18" Çap Gerekir)'
+            status = '❌ YETERSİZ (Kapasite Açığı Var)'
             recommendation_level = 4
             
         matched_results.append({
@@ -89,6 +98,33 @@ def search_matching_valves(
             'description': v.get('description', '')
         })
         
+    # If all valves exceed max_coverage_pct (e.g. extremely low flow rate),
+    # provide a fallback with the smallest available valves so results are not empty
+    if not matched_results and valves:
+        cryo_valves = [v for v in valves if not cryogenic_only or v.get('cryogenic_certified', False)]
+        if cryo_valves:
+            sorted_cryo = sorted(cryo_valves, key=lambda v: v['orifice_area_mm2'])
+            for v in sorted_cryo[:3]:
+                area = v['orifice_area_mm2']
+                kd_ratio = v.get('discharge_coeff_kd', 0.85) / 0.85
+                capacity_m3_h = (area / 148500.0) * 25380.0 * (P1_kPa_a / 117.003) * kd_ratio
+                cov = (capacity_m3_h / required_air_capacity_m3_h) * 100.0
+                matched_results.append({
+                    'id': v['id'],
+                    'manufacturer': v['manufacturer'],
+                    'series': v['series'],
+                    'type': v['type'],
+                    'dn_size': v['dn_size'],
+                    'orifice_area_mm2': area,
+                    'discharge_coeff_kd': v.get('discharge_coeff_kd', 0.85),
+                    'capacity_m3_h': capacity_m3_h,
+                    'coverage_pct': cov,
+                    'status': '⚠️ AŞIRI BÜYÜK (>%200 Düşük Debi Alternatifi)',
+                    'recommendation_level': 3,
+                    'standards': ", ".join(v.get('standards', [])),
+                    'description': v.get('description', '')
+                })
+
     # Sort by recommendation level (1 best) then highest coverage pct
     matched_results.sort(key=lambda x: (x['recommendation_level'], -x['coverage_pct']))
     return matched_results

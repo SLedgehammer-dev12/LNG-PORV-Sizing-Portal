@@ -319,7 +319,12 @@ def generate_html_report(
         <tbody>
 """
 
-    for m in matrix_results:
+    # Filter matrix results: 90% <= coverage <= 200% (or fallback to closest if none)
+    filtered_matrix_results = [m for m in matrix_results if 90.0 <= m['coverage_pct'] <= 200.0]
+    if not filtered_matrix_results and matrix_results:
+        filtered_matrix_results = sorted(matrix_results, key=lambda m: abs(m['coverage_pct'] - 100.0))[:5]
+
+    for m in filtered_matrix_results:
         badge_class = "badge-danger" if m['status_code'] == 'FAIL' else ("badge-warning" if 'WARNING' in m['status_code'] else "badge-success")
         html += f"""
             <tr>
@@ -358,7 +363,11 @@ def generate_html_report(
         <tbody>
 """
 
-    for v in matched_valves:
+    filtered_matched_valves = [v for v in matched_valves if 90.0 <= v['coverage_pct'] <= 200.0]
+    if not filtered_matched_valves and matched_valves:
+        filtered_matched_valves = sorted(matched_valves, key=lambda v: abs(v['coverage_pct'] - 100.0))[:5]
+
+    for v in filtered_matched_valves:
         badge_class = "badge-success" if "TAM UYGUN" in v['status'] else ("badge-warning" if ("UGUN" in v['status'] or "YAKIN" in v['status']) else "badge-danger")
         html += f"""
             <tr>
@@ -392,7 +401,7 @@ def generate_html_report(
 </div>
 
 <div class="footer">
-    <p>NFPA 59A (2019), API 625, API 620 App Q, API 520 Part I/II & ASME Sec VIII Div 1 Standartlarına Uygun Olarak Hesaplanmıştır. | LNG PORV Sizing Portalı v1.1.0</p>
+    <p>NFPA 59A (2019), API 625, API 620 App Q, API 520 Part I/II & ASME Sec VIII Div 1 Standartlarına Uygun Olarak Hesaplanmıştır. | LNG PORV Sizing Portalı v1.2.0</p>
 </div>
 
 </body>

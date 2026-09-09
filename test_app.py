@@ -204,11 +204,11 @@ def test_version_checker():
     """ Verify version checker metadata and update checker functions. """
     from version_checker import get_version_info, check_for_updates, parse_version_tuple
     info = get_version_info()
-    assert info['current_version'] == '1.1.0'
+    assert info['current_version'] == '1.2.0'
     assert 'build_date' in info
     assert len(info['changelog']) > 0
     
-    assert parse_version_tuple('1.1.0') == (1, 1, 0)
+    assert parse_version_tuple('1.2.0') == (1, 2, 0)
     assert parse_version_tuple('v2.0.5') == (2, 0, 5)
     
     upd = check_for_updates(timeout_sec=0.5)
@@ -256,6 +256,81 @@ def test_isenthalpic_ph_flash():
     assert res['converged'] == True
     assert 0.0 <= res['flash_pct'] <= 100.0
     assert 95.0 <= res['T_flash_K'] <= 130.0
+
+
+def test_valve_database_expanded_manufacturers():
+    """ Verify database contains expanded manufacturer pool and wide range of sizes. """
+    from psv_database import load_psv_database
+    valves = load_psv_database()
+    assert len(valves) >= 90, f"Expected at least 90 valves, got {len(valves)}"
+    
+    manufacturers = set(v['manufacturer'] for v in valves)
+    expected_manufacturers = [
+        "Fukui Seisakusho (Fukui Valve)",
+        "Birkett (Emerson)",
+        "Parker Bestobell",
+        "Herose",
+        "Leser",
+        "Anderson Greenwood (Emerson)",
+        "Baker Hughes (Consolidated)",
+        "Curtiss-Wright (Farris)",
+        "Crosby (Emerson)",
+        "Mercer Valve",
+        "Bopp & Reuther",
+        "Weir (Sebim)"
+    ]
+    for m in expected_manufacturers:
+        assert m in manufacturers, f"Expected manufacturer '{m}' in database"
+        
+    sizes = set(v['dn_size'] for v in valves)
+    for expected_size in ['2" x 3"', '4" x 6"', '6" x 8"', '8" x 10"', '12" x 16"', '16" x 18"', '18" x 20"']:
+        assert any(expected_size in s for s in sizes), f"Expected size {expected_size} in database"
+
+
+def test_valve_coverage_cap_200_percent():
+    """ Verify that search_matching_valves strictly enforces max_coverage_pct=200.0 to prevent 500-800% oversized valves. """
+    from psv_database import search_matching_valves
+    
+    # Moderate flow rate: 5,000 m3/h
+    matches = search_matching_valves(
+        req_orifice_area_mm2=25000.0,
+        required_air_capacity_m3_h=5000.0,
+        P1_kPa_a=117.003,
+        max_coverage_pct=200.0,
+        show_all_above_90=True
+    )
+    assert len(matches) > 0
+    # No valve should have coverage > 200%
+    for v in matches:
+        assert v['coverage_pct'] <= 200.0, f"Valve {v['id']} has coverage {v['coverage_pct']:.1f}% > 200%"
+        assert v['coverage_pct'] >= 90.0, f"Valve {v['id']} has coverage {v['coverage_pct']:.1f}% < 90%"
+
+
+def test_small_flow_valve_selection_and_oversized_status():
+    """ Verify small flow rates match 2x3, 3x4, or 4x6 valves and oversized status is properly tagged in matrix. """
+    from psv_sizing import evaluate_valve_matrix
+    from psv_database import search_matching_valves
+    
+    # Small relief demand: 1,500 m3/h air
+    matches = search_matching_valves(
+        req_orifice_area_mm2=8000.0,
+        required_air_capacity_m3_h=1500.0,
+        P1_kPa_a=117.003,
+        max_coverage_pct=200.0,
+        show_all_above_90=True
+    )
+    assert len(matches) > 0
+    # The selected valves should be compact (4"x6" or smaller)
+    for v in matches:
+        assert any(sz in v['dn_size'] for sz in ['2" x 3"', '3" x 4"', '4" x 6"']), f"Unexpected large size {v['dn_size']} for small flow"
+        assert v['coverage_pct'] <= 200.0
+
+    # Test matrix evaluation tags oversized models (>200%)
+    matrix = evaluate_valve_matrix(q_a_per_valve_m3_h=1500.0, P1_kPa_a=117.003, P2_kPa_a=90.603)
+    oversized = [m for m in matrix if m['coverage_pct'] > 200.0]
+    assert len(oversized) > 0
+    assert oversized[0]['status_code'] == 'OVERSIZED'
+    assert "AŞIRI BÜYÜK" in oversized[0]['status']
 
 
 if __name__ == '__main__':

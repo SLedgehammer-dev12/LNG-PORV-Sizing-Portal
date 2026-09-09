@@ -1,5 +1,157 @@
 [
   {
+    "id": "ag_9300_2x3",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 2,
+    "outlet_size_in": 3,
+    "dn_size": "2\" x 3\" (DN50 x DN80)",
+    "orifice_area_mm2": 2150.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "Küçük ölçekli kriyojenik tank ve skid üniteleri için 2x3 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_3x4",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 5100.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "Kompakt LNG proses ve depolama tankları için 3x4 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_4x6",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9800.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "LNG kamyon dolum ve küçük tanklar için 4x6 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_6x8",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21500.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "Bunkering ve küçük LNG terminalleri için 6x8 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_8x10",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37500.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "Küçük ölçekli LNG tankları ve proses hatları için 8x10 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_10x12",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 58000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "Kompakt LNG depolama ve bunkering terminalleri için 10x12 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_12x16",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 83500.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "Orta ölçekli LNG tankları ve FSRU üniteleri için 12x16 inç pilot vana."
+  },
+  {
+    "id": "ag_9300_16x18",
+    "manufacturer": "Anderson Greenwood (Emerson)",
+    "series": "Series 9300 PORV",
+    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148500.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "NFPA 59A"
+    ],
+    "description": "BOTAŞ Şartnamesi standart ölçüsü (DN400xDN450)."
+  },
+  {
     "id": "ag_9300_18x20",
     "manufacturer": "Anderson Greenwood (Emerson)",
     "series": "Series 9300 PORV",
@@ -20,25 +172,6 @@
     "description": "Dünya standartlarında LNG depolama tankları için kriyojenik modülasyonlu pilot vana."
   },
   {
-    "id": "ag_9300_16x18",
-    "manufacturer": "Anderson Greenwood (Emerson)",
-    "series": "Series 9300 PORV",
-    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
-    "inlet_size_in": 16,
-    "outlet_size_in": 18,
-    "dn_size": "16\" x 18\" (DN400 x DN450)",
-    "orifice_area_mm2": 148500.0,
-    "discharge_coeff_kd": 0.865,
-    "flange_rating": "150# / 150# ANSI",
-    "cryogenic_certified": true,
-    "standards": [
-      "ASME Sec VIII Div 1",
-      "API 520/526",
-      "NFPA 59A"
-    ],
-    "description": "BOTAŞ Şartnamesi varsayılan ölçüsü (DN400xDN450)."
-  },
-  {
     "id": "ag_9300_20x24",
     "manufacturer": "Anderson Greenwood (Emerson)",
     "series": "Series 9300 PORV",
@@ -56,6 +189,158 @@
       "NFPA 59A"
     ],
     "description": "Yüksek kapasiteli tanklar için ekstra büyük orifisli pilot vana."
+  },
+  {
+    "id": "leser_810_2x3",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 2,
+    "outlet_size_in": 3,
+    "dn_size": "2\" x 3\" (DN50 x DN80)",
+    "orifice_area_mm2": 2180.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "150# / 150# PN/ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 2x3 inç kompakt kriyojenik POSV."
+  },
+  {
+    "id": "leser_810_3x4",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 5200.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# PN/ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 3x4 inç kriyojenik pilot emniyet vanası."
+  },
+  {
+    "id": "leser_810_4x6",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9950.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# PN/ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 4x6 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "leser_810_6x8",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21200.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 6x8 inç küçük kapasiteli kriyojenik vana."
+  },
+  {
+    "id": "leser_810_8x10",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 38000.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 8x10 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "leser_810_10x12",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 58500.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 10x12 inç kompakt kriyojenik POSV."
+  },
+  {
+    "id": "leser_810_12x16",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 84000.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# PN/ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Leser 12x16 inç kriyojenik pilot emniyet vanası."
+  },
+  {
+    "id": "leser_810_16x18",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV",
+    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 149000.0,
+    "discharge_coeff_kd": 0.87,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME VIII",
+      "ISO 4126-4"
+    ],
+    "description": "Standart 16 inç kriyojenik Leser POSV serisi."
   },
   {
     "id": "leser_810_18x20",
@@ -78,23 +363,130 @@
     "description": "Alman mühendisliği yüksek orifis alanlı kriyojenik pilot emniyet vanası."
   },
   {
-    "id": "leser_810_16x18",
-    "manufacturer": "Leser",
-    "series": "Series 810 POSV",
-    "type": "Pilot Operated Safety Valve (Cryogenic)",
-    "inlet_size_in": 16,
-    "outlet_size_in": 18,
-    "dn_size": "16\" x 18\" (DN400 x DN450)",
-    "orifice_area_mm2": 149000.0,
-    "discharge_coeff_kd": 0.87,
+    "id": "bh_2900_3x4",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 5050.0,
+    "discharge_coeff_kd": 0.84,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "API 526",
-      "ASME VIII",
-      "ISO 4126-4"
+      "ASME Sec VIII",
+      "API 520"
     ],
-    "description": "Standart 16 inç kriyojenik Leser POSV serisi."
+    "description": "Consolidated 3x4 inç pilot tahliye vanası."
+  },
+  {
+    "id": "bh_2900_4x6",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9500.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Consolidated 4x6 inç küçük ölçekli LNG pilot vana."
+  },
+  {
+    "id": "bh_2900_6x8",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21000.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Consolidated 6x8 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "bh_2900_8x10",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37000.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Consolidated 8x10 inç pilot vana."
+  },
+  {
+    "id": "bh_2900_10x12",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 57500.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Consolidated 10x12 inç pilot tahliye vanası."
+  },
+  {
+    "id": "bh_2900_12x16",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 83000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Consolidated 12x16 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "bh_2900_16x18",
+    "manufacturer": "Baker Hughes (Consolidated)",
+    "series": "2900 Series POSRV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148200.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Consolidated 16x18 inç pilot vana."
   },
   {
     "id": "bh_2900_18x20",
@@ -116,22 +508,112 @@
     "description": "Consolidated modülasyonlu pilot kriyojenik vana."
   },
   {
-    "id": "bh_2900_16x18",
-    "manufacturer": "Baker Hughes (Consolidated)",
-    "series": "2900 Series POSRV",
-    "type": "Pilot Operated Safety Relief Valve",
-    "inlet_size_in": 16,
-    "outlet_size_in": 18,
-    "dn_size": "16\" x 18\" (DN400 x DN450)",
-    "orifice_area_mm2": 148200.0,
+    "id": "farris_3800_4x6",
+    "manufacturer": "Curtiss-Wright (Farris)",
+    "series": "Series 3800 PORV",
+    "type": "Pilot Operated Pressure Relief Valve",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9750.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520/526"
+    ],
+    "description": "Farris 4x6 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "farris_3800_6x8",
+    "manufacturer": "Curtiss-Wright (Farris)",
+    "series": "Series 3800 PORV",
+    "type": "Pilot Operated Pressure Relief Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21300.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520/526"
+    ],
+    "description": "Farris 6x8 inç kriyojenik pilot emniyet vanası."
+  },
+  {
+    "id": "farris_3800_8x10",
+    "manufacturer": "Curtiss-Wright (Farris)",
+    "series": "Series 3800 PORV",
+    "type": "Pilot Operated Pressure Relief Valve",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37800.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520/526"
+    ],
+    "description": "Farris 8x10 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "farris_3800_10x12",
+    "manufacturer": "Curtiss-Wright (Farris)",
+    "series": "Series 3800 PORV",
+    "type": "Pilot Operated Pressure Relief Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 58200.0,
     "discharge_coeff_kd": 0.86,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
       "ASME Sec VIII",
-      "API 520"
+      "API 520/526"
     ],
-    "description": "Consolidated 16x18 inç pilot vana."
+    "description": "Farris 10x12 inç modülasyonlu kriyojenik pilot vana."
+  },
+  {
+    "id": "farris_3800_12x16",
+    "manufacturer": "Curtiss-Wright (Farris)",
+    "series": "Series 3800 PORV",
+    "type": "Pilot Operated Pressure Relief Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 83800.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520/526"
+    ],
+    "description": "Farris 12x16 inç LNG depolama tankı pilot vanası."
+  },
+  {
+    "id": "farris_3800_16x18",
+    "manufacturer": "Curtiss-Wright (Farris)",
+    "series": "Series 3800 PORV",
+    "type": "Pilot Operated Pressure Relief Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148800.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520/526"
+    ],
+    "description": "Farris 16x18 inç LNG depolama tankı pilot vanası."
   },
   {
     "id": "farris_3800_18x20",
@@ -152,6 +634,96 @@
     "description": "Farris LNG depolama tankları pilot vana serisi."
   },
   {
+    "id": "crosby_900_6x8",
+    "manufacturer": "Crosby (Emerson)",
+    "series": "Series 900 POSV",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21100.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Crosby 6x8 inç kriyojenik pilot emniyet vanası."
+  },
+  {
+    "id": "crosby_900_8x10",
+    "manufacturer": "Crosby (Emerson)",
+    "series": "Series 900 POSV",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37200.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Crosby 8x10 inç pilot vana."
+  },
+  {
+    "id": "crosby_900_10x12",
+    "manufacturer": "Crosby (Emerson)",
+    "series": "Series 900 POSV",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 57800.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Crosby 10x12 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "crosby_900_12x16",
+    "manufacturer": "Crosby (Emerson)",
+    "series": "Series 900 POSV",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 83200.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Crosby 12x16 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "crosby_900_16x18",
+    "manufacturer": "Crosby (Emerson)",
+    "series": "Series 900 POSV",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148000.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Crosby 16x18 inç kriyojenik pilot emniyet vanası."
+  },
+  {
     "id": "crosby_900_18x20",
     "manufacturer": "Crosby (Emerson)",
     "series": "Series 900 POSV",
@@ -168,6 +740,96 @@
       "API 520"
     ],
     "description": "Crosby 18 inç kriyojenik pilot emniyet vanası."
+  },
+  {
+    "id": "mercer_9500_6x8",
+    "manufacturer": "Mercer Valve",
+    "series": "9500 Series Auto-Seat",
+    "type": "Pilot Operated Relief Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21000.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Mercer 6x8 inç Auto-Seat patentli kriyojenik pilot vana."
+  },
+  {
+    "id": "mercer_9500_8x10",
+    "manufacturer": "Mercer Valve",
+    "series": "9500 Series Auto-Seat",
+    "type": "Pilot Operated Relief Valve",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37100.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Mercer 8x10 inç Auto-Seat pilot vana."
+  },
+  {
+    "id": "mercer_9500_10x12",
+    "manufacturer": "Mercer Valve",
+    "series": "9500 Series Auto-Seat",
+    "type": "Pilot Operated Relief Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 57600.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Mercer 10x12 inç Auto-Seat pilot vana."
+  },
+  {
+    "id": "mercer_9500_12x16",
+    "manufacturer": "Mercer Valve",
+    "series": "9500 Series Auto-Seat",
+    "type": "Pilot Operated Relief Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 83000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Mercer 12x16 inç Auto-Seat pilot vana."
+  },
+  {
+    "id": "mercer_9500_16x18",
+    "manufacturer": "Mercer Valve",
+    "series": "9500 Series Auto-Seat",
+    "type": "Pilot Operated Relief Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 147800.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII",
+      "API 520"
+    ],
+    "description": "Mercer 16x18 inç Auto-Seat kriyojenik vana."
   },
   {
     "id": "mercer_9500_18x20",
@@ -188,124 +850,617 @@
     "description": "Mercer patentli Auto-Seat pilot vana teknolojisi."
   },
   {
-    "id": "ag_9300_12x16",
-    "manufacturer": "Anderson Greenwood (Emerson)",
-    "series": "Series 9300 PORV",
-    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
-    "inlet_size_in": 12,
-    "outlet_size_in": 16,
-    "dn_size": "12\" x 16\" (DN300 x DN400)",
-    "orifice_area_mm2": 83500.0,
-    "discharge_coeff_kd": 0.865,
-    "flange_rating": "150# / 150# ANSI",
+    "id": "br_si83_6x8",
+    "manufacturer": "Bopp & Reuther",
+    "series": "Si 83 POSV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21400.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# PN/ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "ASME Sec VIII Div 1",
-      "API 520/526",
-      "NFPA 59A"
+      "ISO 4126-4",
+      "AD 2000-A2",
+      "API 526"
     ],
-    "description": "Orta ölçekli LNG tankları ve FSRU üniteleri için 12x16 inç pilot vana."
+    "description": "Bopp & Reuther Alman kriyojenik LNG pilot vanası."
   },
   {
-    "id": "ag_9300_10x12",
-    "manufacturer": "Anderson Greenwood (Emerson)",
-    "series": "Series 9300 PORV",
-    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
-    "inlet_size_in": 10,
-    "outlet_size_in": 12,
-    "dn_size": "10\" x 12\" (DN250 x DN300)",
-    "orifice_area_mm2": 58000.0,
-    "discharge_coeff_kd": 0.86,
-    "flange_rating": "150# / 150# ANSI",
-    "cryogenic_certified": true,
-    "standards": [
-      "ASME Sec VIII Div 1",
-      "API 520/526",
-      "NFPA 59A"
-    ],
-    "description": "Kompakt LNG depolama ve bunkering terminalleri için 10x12 inç pilot vana."
-  },
-  {
-    "id": "ag_9300_8x10",
-    "manufacturer": "Anderson Greenwood (Emerson)",
-    "series": "Series 9300 PORV",
-    "type": "Pilot Operated (Non-Flowing Modulating Pilot)",
+    "id": "br_si83_8x10",
+    "manufacturer": "Bopp & Reuther",
+    "series": "Si 83 POSV",
+    "type": "Pilot Operated Safety Relief Valve",
     "inlet_size_in": 8,
     "outlet_size_in": 10,
     "dn_size": "8\" x 10\" (DN200 x DN250)",
-    "orifice_area_mm2": 37500.0,
+    "orifice_area_mm2": 37600.0,
     "discharge_coeff_kd": 0.855,
-    "flange_rating": "150# / 150# ANSI",
+    "flange_rating": "150# / 150# PN/ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "ASME Sec VIII Div 1",
-      "API 520/526",
-      "NFPA 59A"
+      "ISO 4126-4",
+      "AD 2000-A2",
+      "API 526"
     ],
-    "description": "Küçük ölçekli LNG tankları ve proses hatları için 8x10 inç pilot vana."
+    "description": "Bopp & Reuther 8x10 inç pilot vana."
   },
   {
-    "id": "leser_810_12x16",
-    "manufacturer": "Leser",
-    "series": "Series 810 POSV",
-    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "id": "br_si83_10x12",
+    "manufacturer": "Bopp & Reuther",
+    "series": "Si 83 POSV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 58100.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# PN/ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ISO 4126-4",
+      "AD 2000-A2",
+      "API 526"
+    ],
+    "description": "Bopp & Reuther 10x12 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "br_si83_12x16",
+    "manufacturer": "Bopp & Reuther",
+    "series": "Si 83 POSV",
+    "type": "Pilot Operated Safety Relief Valve",
     "inlet_size_in": 12,
     "outlet_size_in": 16,
     "dn_size": "12\" x 16\" (DN300 x DN400)",
-    "orifice_area_mm2": 84000.0,
+    "orifice_area_mm2": 83600.0,
     "discharge_coeff_kd": 0.865,
     "flange_rating": "150# / 150# PN/ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "API 526",
-      "ASME VIII",
-      "ISO 4126-4"
+      "ISO 4126-4",
+      "AD 2000-A2",
+      "API 526"
     ],
-    "description": "Leser 12x16 inç kriyojenik pilot emniyet vanası."
+    "description": "Bopp & Reuther 12x16 inç pilot emniyet vanası."
   },
   {
-    "id": "leser_810_10x12",
-    "manufacturer": "Leser",
-    "series": "Series 810 POSV",
-    "type": "Pilot Operated Safety Valve (Cryogenic)",
-    "inlet_size_in": 10,
-    "outlet_size_in": 12,
-    "dn_size": "10\" x 12\" (DN250 x DN300)",
-    "orifice_area_mm2": 58500.0,
-    "discharge_coeff_kd": 0.86,
+    "id": "br_si83_16x18",
+    "manufacturer": "Bopp & Reuther",
+    "series": "Si 83 POSV",
+    "type": "Pilot Operated Safety Relief Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148600.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# PN/ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ISO 4126-4",
+      "AD 2000-A2",
+      "API 526"
+    ],
+    "description": "Bopp & Reuther 16x18 inç kriyojenik pilot vana."
+  },
+  {
+    "id": "herose_06800_2x3",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Full Lift",
+    "type": "Cryogenic Safety Relief Valve",
+    "inlet_size_in": 2,
+    "outlet_size_in": 3,
+    "dn_size": "2\" x 3\" (DN50 x DN80)",
+    "orifice_area_mm2": 2100.0,
+    "discharge_coeff_kd": 0.835,
+    "flange_rating": "PN40 / PN16",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "AD 2000-A2",
+      "ASME Sec VIII"
+    ],
+    "description": "Herose Alman patentli kriyojenik tank güvenlik vanası."
+  },
+  {
+    "id": "herose_06800_3x4",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Full Lift",
+    "type": "Cryogenic Safety Relief Valve",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 5000.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "PN40 / PN16",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "AD 2000-A2",
+      "ASME Sec VIII"
+    ],
+    "description": "Herose 3x4 inç kriyojenik güvenlik vanası."
+  },
+  {
+    "id": "herose_06800_4x6",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Full Lift",
+    "type": "Cryogenic Safety Relief Valve",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9600.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "PN40 / PN16",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "AD 2000-A2",
+      "ASME Sec VIII"
+    ],
+    "description": "Herose 4x6 inç tam kalkışlı kriyojenik vana."
+  },
+  {
+    "id": "weir_sebim_6x8",
+    "manufacturer": "Weir (Sebim)",
+    "series": "POSV Cryogenic",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21250.0,
+    "discharge_coeff_kd": 0.85,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "API 526",
+      "ISO 4126",
       "ASME VIII",
-      "ISO 4126-4"
+      "API 520"
     ],
-    "description": "Leser 10x12 inç kompakt kriyojenik POSV."
+    "description": "Weir Sebim nükleer ve kriyojenik pilot emniyet vanası."
   },
   {
-    "id": "leser_810_8x10",
-    "manufacturer": "Leser",
-    "series": "Series 810 POSV",
-    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "id": "weir_sebim_8x10",
+    "manufacturer": "Weir (Sebim)",
+    "series": "POSV Cryogenic",
+    "type": "Pilot Operated Safety Valve",
     "inlet_size_in": 8,
     "outlet_size_in": 10,
     "dn_size": "8\" x 10\" (DN200 x DN250)",
-    "orifice_area_mm2": 38000.0,
+    "orifice_area_mm2": 37400.0,
     "discharge_coeff_kd": 0.855,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "API 526",
+      "ISO 4126",
       "ASME VIII",
-      "ISO 4126-4"
+      "API 520"
     ],
-    "description": "Leser 8x10 inç kriyojenik pilot vana."
+    "description": "Weir Sebim 8x10 inç kriyojenik pilot vana."
   },
   {
-    "id": "leser_810_6x8",
-    "manufacturer": "Leser",
-    "series": "Series 810 POSV",
-    "type": "Pilot Operated Safety Valve (Cryogenic)",
+    "id": "weir_sebim_10x12",
+    "manufacturer": "Weir (Sebim)",
+    "series": "POSV Cryogenic",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 57900.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ISO 4126",
+      "ASME VIII",
+      "API 520"
+    ],
+    "description": "Weir Sebim 10x12 inç pilot vana."
+  },
+  {
+    "id": "weir_sebim_12x16",
+    "manufacturer": "Weir (Sebim)",
+    "series": "POSV Cryogenic",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 83400.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ISO 4126",
+      "ASME VIII",
+      "API 520"
+    ],
+    "description": "Weir Sebim 12x16 inç pilot vana."
+  },
+  {
+    "id": "weir_sebim_16x18",
+    "manufacturer": "Weir (Sebim)",
+    "series": "POSV Cryogenic",
+    "type": "Pilot Operated Safety Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148400.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ISO 4126",
+      "ASME VIII",
+      "API 520"
+    ],
+    "description": "Weir Sebim 16x18 inç pilot vana."
+  },
+  {
+    "id": "fukui_psl_2x3",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 2,
+    "outlet_size_in": 3,
+    "dn_size": "2\" x 3\" (DN50 x DN80)",
+    "orifice_area_mm2": 2100.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "150# / 150# ANSI (JIS 10K/20K)",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui kriyojenik pilot kumandali emniyet vanasi, kucuk LNG hat ve tanklar icin."
+  },
+  {
+    "id": "fukui_psl_3x4",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 5000.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL yuksek hassasiyetli kriyojenik pilot vana, BOG ve proses tanklari icin."
+  },
+  {
+    "id": "fukui_psl_4x6",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9600.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL kriyojenik pilot tahliye vanasi, LNG bunkering ve ara depolama tanklari."
+  },
+  {
+    "id": "fukui_psl_6x8",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 22000.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL LNG depolama tanki ve terminal pilot tahliye vanasi."
+  },
+  {
+    "id": "fukui_psl_8x10",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 38500.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL buyuk olcekli LNG depolama ve terminal proses tanklari icin 8x10 inc PORV."
+  },
+  {
+    "id": "fukui_psl_10x12",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 60000.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL yuksek debili LNG depolama tanki pilot emniyet vanasi."
+  },
+  {
+    "id": "fukui_psl_12x16",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 94500.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL ana depolama tanki tahliye vanasi, 12x16 inc genis tahliye orifisi."
+  },
+  {
+    "id": "fukui_psl_16x18",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 148000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A",
+      "API 625"
+    ],
+    "description": "Fukui PSL 16x18 inc full-bore kriyojenik pilot vana, terminal ana tanklari icin."
+  },
+  {
+    "id": "fukui_psl_18x20",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 18,
+    "outlet_size_in": 20,
+    "dn_size": "18\" x 20\" (DN450 x DN500)",
+    "orifice_area_mm2": 192000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A",
+      "API 625"
+    ],
+    "description": "Fukui PSL 18x20 inc ekstra genis kapasiteli pilot vana, cok yuksek dolum debili tanklar."
+  },
+  {
+    "id": "fukui_psl_20x24",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL Pilot Operated",
+    "type": "Pilot Operated (Modulating / Pop Action Cryogenic Pilot)",
+    "inlet_size_in": 20,
+    "outlet_size_in": 24,
+    "dn_size": "20\" x 24\" (DN500 x DN600)",
+    "orifice_area_mm2": 238000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A",
+      "API 625"
+    ],
+    "description": "Fukui PSL 20x24 inc dev kapasiteli ultra kriyojenik pilot tahliye vanasi."
+  },
+  {
+    "id": "fukui_psl_md_6x8",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL-MD Modulating",
+    "type": "Modulating Pilot Operated Cryogenic Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21500.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui modullu pilot ile orantili tahliye saglayan kriyojenik emniyet vanasi."
+  },
+  {
+    "id": "fukui_psl_md_8x10",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL-MD Modulating",
+    "type": "Modulating Pilot Operated Cryogenic Valve",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37800.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL-MD 8x10 orantili modullu tahliye, minimum gaz kaybi saglar."
+  },
+  {
+    "id": "fukui_psl_md_10x12",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL-MD Modulating",
+    "type": "Modulating Pilot Operated Cryogenic Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 59200.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL-MD 10x12 orantili modullu kriyojenik pilot vana."
+  },
+  {
+    "id": "fukui_psl_md_12x16",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL-MD Modulating",
+    "type": "Modulating Pilot Operated Cryogenic Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 93000.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL-MD 12x16 orantili pilot, yuksek debili depolama tanki tahliyesi."
+  },
+  {
+    "id": "fukui_psl_md_16x18",
+    "manufacturer": "Fukui Seisakusho (Fukui Valve)",
+    "series": "Series PSL-MD Modulating",
+    "type": "Modulating Pilot Operated Cryogenic Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 147000.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "ASME Sec VIII Div 1",
+      "API 520/526",
+      "JIS B8210",
+      "NFPA 59A"
+    ],
+    "description": "Fukui PSL-MD 16x18 modullu pilot vana, LNG tankinda minimum chattering riski."
+  },
+  {
+    "id": "birkett_wb_2x3",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Full Nozzle Spring Loaded Cryogenic SRV",
+    "inlet_size_in": 2,
+    "outlet_size_in": 3,
+    "dn_size": "2\" x 3\" (DN50 x DN80)",
+    "orifice_area_mm2": 2050.0,
+    "discharge_coeff_kd": 0.835,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1"
+    ],
+    "description": "Birkett Series WB kriyojenik yayli emniyet vanasi, -196 C sertifikali."
+  },
+  {
+    "id": "birkett_wb_3x4",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Full Nozzle Spring Loaded Cryogenic SRV",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 4900.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1"
+    ],
+    "description": "Birkett WB kompakt kriyojenik tank ve LNG boru hatti tahliye vanasi."
+  },
+  {
+    "id": "birkett_wb_4x6",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Full Nozzle Spring Loaded Cryogenic SRV",
+    "inlet_size_in": 4,
+    "outlet_size_in": 6,
+    "dn_size": "4\" x 6\" (DN100 x DN150)",
+    "orifice_area_mm2": 9400.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1"
+    ],
+    "description": "Birkett WB LNG yukleme istasyonlari ve kucuk tanklar icin emniyet vanasi."
+  },
+  {
+    "id": "birkett_wb_6x8",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Pilot / Spring Loaded Cryogenic SRV",
     "inlet_size_in": 6,
     "outlet_size_in": 8,
     "dn_size": "6\" x 8\" (DN150 x DN200)",
@@ -314,100 +1469,391 @@
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "API 526",
-      "ASME VIII",
-      "ISO 4126-4"
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1",
+      "NFPA 59A"
     ],
-    "description": "Leser 6x8 inç küçük kapasiteli kriyojenik vana."
+    "description": "Birkett WB orta olcekli LNG tank ve recondenser uniteleri icin tahliye vanasi."
   },
   {
-    "id": "bh_2900_12x16",
-    "manufacturer": "Baker Hughes (Consolidated)",
-    "series": "2900 Series POSRV",
-    "type": "Pilot Operated Safety Relief Valve",
-    "inlet_size_in": 12,
-    "outlet_size_in": 16,
-    "dn_size": "12\" x 16\" (DN300 x DN400)",
-    "orifice_area_mm2": 83000.0,
-    "discharge_coeff_kd": 0.86,
-    "flange_rating": "150# / 150# ANSI",
-    "cryogenic_certified": true,
-    "standards": [
-      "ASME Sec VIII",
-      "API 520"
-    ],
-    "description": "Consolidated 12x16 inç kriyojenik pilot vana."
-  },
-  {
-    "id": "bh_2900_10x12",
-    "manufacturer": "Baker Hughes (Consolidated)",
-    "series": "2900 Series POSRV",
-    "type": "Pilot Operated Safety Relief Valve",
-    "inlet_size_in": 10,
-    "outlet_size_in": 12,
-    "dn_size": "10\" x 12\" (DN250 x DN300)",
-    "orifice_area_mm2": 57500.0,
-    "discharge_coeff_kd": 0.855,
-    "flange_rating": "150# / 150# ANSI",
-    "cryogenic_certified": true,
-    "standards": [
-      "ASME Sec VIII",
-      "API 520"
-    ],
-    "description": "Consolidated 10x12 inç pilot tahliye vanası."
-  },
-  {
-    "id": "bh_2900_8x10",
-    "manufacturer": "Baker Hughes (Consolidated)",
-    "series": "2900 Series POSRV",
-    "type": "Pilot Operated Safety Relief Valve",
+    "id": "birkett_wb_8x10",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Pilot / Spring Loaded Cryogenic SRV",
     "inlet_size_in": 8,
     "outlet_size_in": 10,
     "dn_size": "8\" x 10\" (DN200 x DN250)",
-    "orifice_area_mm2": 37000.0,
+    "orifice_area_mm2": 37500.0,
     "discharge_coeff_kd": 0.85,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "ASME Sec VIII",
-      "API 520"
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1",
+      "NFPA 59A"
     ],
-    "description": "Consolidated 8x10 inç pilot vana."
+    "description": "Birkett WB 8x10 inc LNG depolama tanki tahliye vanasi."
   },
   {
-    "id": "bh_2900_6x8",
-    "manufacturer": "Baker Hughes (Consolidated)",
-    "series": "2900 Series POSRV",
-    "type": "Pilot Operated Safety Relief Valve",
-    "inlet_size_in": 6,
-    "outlet_size_in": 8,
-    "dn_size": "6\" x 8\" (DN150 x DN200)",
-    "orifice_area_mm2": 21000.0,
-    "discharge_coeff_kd": 0.845,
+    "id": "birkett_wb_10x12",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Pilot / Spring Loaded Cryogenic SRV",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 58500.0,
+    "discharge_coeff_kd": 0.855,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "ASME Sec VIII",
-      "API 520"
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1",
+      "NFPA 59A"
     ],
-    "description": "Consolidated 6x8 inç kriyojenik pilot vana."
+    "description": "Birkett WB 10x12 inc genis orifisli kriyojenik emniyet vanasi."
   },
   {
-    "id": "bh_2900_4x6",
-    "manufacturer": "Baker Hughes (Consolidated)",
-    "series": "2900 Series POSRV",
-    "type": "Pilot Operated Safety Relief Valve",
+    "id": "birkett_wb_12x16",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Pilot Operated Cryogenic Relief Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 92000.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1",
+      "NFPA 59A"
+    ],
+    "description": "Birkett WB 12x16 inc buyuk boy depolama tanki pilot vanasi."
+  },
+  {
+    "id": "birkett_wb_16x18",
+    "manufacturer": "Birkett (Emerson)",
+    "series": "Series WB Cryogenic",
+    "type": "Pilot Operated Cryogenic Relief Valve",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 146500.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "BS EN ISO 4126-1",
+      "API 520/526",
+      "ASME Sec VIII Div 1",
+      "NFPA 59A",
+      "API 625"
+    ],
+    "description": "Birkett WB 16x18 inc kriyojenik PORV, terminal ana tanklari icin."
+  },
+  {
+    "id": "parker_fl50_2x3",
+    "manufacturer": "Parker Bestobell",
+    "series": "Series FL50 Cryogenic",
+    "type": "Spring Loaded Cryogenic Thermal & Safety Relief",
+    "inlet_size_in": 2,
+    "outlet_size_in": 3,
+    "dn_size": "2\" x 3\" (DN50 x DN80)",
+    "orifice_area_mm2": 1950.0,
+    "discharge_coeff_kd": 0.83,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "ASME Sec VIII Div 1",
+      "API 520"
+    ],
+    "description": "Parker Bestobell FL50 kriyojenik LNG depolama ve yakit tanki emniyet vanasi."
+  },
+  {
+    "id": "parker_fl50_3x4",
+    "manufacturer": "Parker Bestobell",
+    "series": "Series FL50 Cryogenic",
+    "type": "Spring Loaded Cryogenic Safety Relief",
+    "inlet_size_in": 3,
+    "outlet_size_in": 4,
+    "dn_size": "3\" x 4\" (DN80 x DN100)",
+    "orifice_area_mm2": 4700.0,
+    "discharge_coeff_kd": 0.835,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "ASME Sec VIII Div 1",
+      "API 520"
+    ],
+    "description": "Parker Bestobell FL50 kompakt LNG proses ve depolama tanki tahliyesi."
+  },
+  {
+    "id": "parker_fl50_4x6",
+    "manufacturer": "Parker Bestobell",
+    "series": "Series FL50 Cryogenic",
+    "type": "Spring Loaded Cryogenic Safety Relief",
     "inlet_size_in": 4,
     "outlet_size_in": 6,
     "dn_size": "4\" x 6\" (DN100 x DN150)",
-    "orifice_area_mm2": 9500.0,
+    "orifice_area_mm2": 9100.0,
     "discharge_coeff_kd": 0.84,
     "flange_rating": "150# / 150# ANSI",
     "cryogenic_certified": true,
     "standards": [
-      "ASME Sec VIII",
+      "EN 13648-1",
+      "ASME Sec VIII Div 1",
       "API 520"
     ],
-    "description": "Consolidated 4x6 inç küçük ölçekli LNG pilot vana."
+    "description": "Parker Bestobell FL50 LNG bunkering ve dolum tanklari emniyet vanasi."
+  },
+  {
+    "id": "parker_fl50_6x8",
+    "manufacturer": "Parker Bestobell",
+    "series": "Series FL50 Cryogenic",
+    "type": "High Capacity Cryogenic Safety Relief",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 20800.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "ASME Sec VIII Div 1",
+      "API 520",
+      "NFPA 59A"
+    ],
+    "description": "Parker Bestobell FL50 6x8 kriyojenik emniyet vanasi."
+  },
+  {
+    "id": "parker_fl50_8x10",
+    "manufacturer": "Parker Bestobell",
+    "series": "Series FL50 Cryogenic",
+    "type": "High Capacity Cryogenic Safety Relief",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 36800.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN 13648-1",
+      "ASME Sec VIII Div 1",
+      "API 520",
+      "NFPA 59A"
+    ],
+    "description": "Parker Bestobell FL50 8x10 yuksek debili kriyojenik depolama tanki tahliyesi."
+  },
+  {
+    "id": "herose_06800_6x8",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Cryogenic",
+    "type": "Angle Type Cryogenic Safety Valve",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 21000.0,
+    "discharge_coeff_kd": 0.84,
+    "flange_rating": "PN40 / PN16 (150# ANSI)",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN ISO 4126-1",
+      "AD 2000-A2",
+      "API 520",
+      "NFPA 59A"
+    ],
+    "description": "Herose Type 06800 genis capli kriyojenik tank ve tesis emniyet vanasi."
+  },
+  {
+    "id": "herose_06800_8x10",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Cryogenic",
+    "type": "Angle Type Cryogenic Safety Valve",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 37000.0,
+    "discharge_coeff_kd": 0.845,
+    "flange_rating": "PN40 / PN16 (150# ANSI)",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN ISO 4126-1",
+      "AD 2000-A2",
+      "API 520",
+      "NFPA 59A"
+    ],
+    "description": "Herose Type 06800 8x10 kriyojenik depolama tanki koruma vanasi."
+  },
+  {
+    "id": "herose_06800_10x12",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Cryogenic",
+    "type": "Angle Type Cryogenic Safety Valve",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 58000.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "PN40 / PN16 (150# ANSI)",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN ISO 4126-1",
+      "AD 2000-A2",
+      "API 520",
+      "NFPA 59A"
+    ],
+    "description": "Herose Type 06800 10x12 yuksek debili kriyojenik tank emniyet vanasi."
+  },
+  {
+    "id": "herose_06800_12x16",
+    "manufacturer": "Herose",
+    "series": "Type 06800 Cryogenic",
+    "type": "Angle Type Cryogenic Safety Valve",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 91500.0,
+    "discharge_coeff_kd": 0.85,
+    "flange_rating": "PN40 / PN16 (150# ANSI)",
+    "cryogenic_certified": true,
+    "standards": [
+      "EN ISO 4126-1",
+      "AD 2000-A2",
+      "API 520",
+      "NFPA 59A"
+    ],
+    "description": "Herose Type 06800 12x16 buyuk capli LNG tanki acil tahliye vanasi."
+  },
+  {
+    "id": "leser_posv_810_6x8",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV Pilot Operated",
+    "type": "Pilot Operated Safety Valve (Modulating Cryogenic Pilot)",
+    "inlet_size_in": 6,
+    "outlet_size_in": 8,
+    "dn_size": "6\" x 8\" (DN150 x DN200)",
+    "orifice_area_mm2": 22200.0,
+    "discharge_coeff_kd": 0.855,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME Sec VIII Div 1",
+      "EN ISO 4126-4",
+      "NFPA 59A"
+    ],
+    "description": "Leser 810 pilot kumandali kriyojenik emniyet vanasi, modullu acilma."
+  },
+  {
+    "id": "leser_posv_810_8x10",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV Pilot Operated",
+    "type": "Pilot Operated Safety Valve (Modulating Cryogenic Pilot)",
+    "inlet_size_in": 8,
+    "outlet_size_in": 10,
+    "dn_size": "8\" x 10\" (DN200 x DN250)",
+    "orifice_area_mm2": 39000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME Sec VIII Div 1",
+      "EN ISO 4126-4",
+      "NFPA 59A"
+    ],
+    "description": "Leser 810 POSV 8x10 LNG tanki tahliye vanasi, yuksek tahliye katsayisi."
+  },
+  {
+    "id": "leser_posv_810_10x12",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV Pilot Operated",
+    "type": "Pilot Operated Safety Valve (Modulating Cryogenic Pilot)",
+    "inlet_size_in": 10,
+    "outlet_size_in": 12,
+    "dn_size": "10\" x 12\" (DN250 x DN300)",
+    "orifice_area_mm2": 61000.0,
+    "discharge_coeff_kd": 0.86,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME Sec VIII Div 1",
+      "EN ISO 4126-4",
+      "NFPA 59A"
+    ],
+    "description": "Leser 810 POSV 10x12 genis acilimli kriyojenik pilot tahliye vanasi."
+  },
+  {
+    "id": "leser_posv_810_12x16",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV Pilot Operated",
+    "type": "Pilot Operated Safety Valve (Modulating Cryogenic Pilot)",
+    "inlet_size_in": 12,
+    "outlet_size_in": 16,
+    "dn_size": "12\" x 16\" (DN300 x DN400)",
+    "orifice_area_mm2": 96000.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME Sec VIII Div 1",
+      "EN ISO 4126-4",
+      "NFPA 59A"
+    ],
+    "description": "Leser 810 POSV 12x16 yuksek akisli LNG depolama tanki PORV."
+  },
+  {
+    "id": "leser_posv_810_16x18",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV Pilot Operated",
+    "type": "Pilot Operated Safety Valve (Modulating Cryogenic Pilot)",
+    "inlet_size_in": 16,
+    "outlet_size_in": 18,
+    "dn_size": "16\" x 18\" (DN400 x DN450)",
+    "orifice_area_mm2": 150000.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME Sec VIII Div 1",
+      "EN ISO 4126-4",
+      "NFPA 59A",
+      "API 625"
+    ],
+    "description": "Leser 810 POSV 16x18 full-bore kriyojenik pilot vana, terminal ana tanklari."
+  },
+  {
+    "id": "leser_posv_810_18x20",
+    "manufacturer": "Leser",
+    "series": "Series 810 POSV Pilot Operated",
+    "type": "Pilot Operated Safety Valve (Modulating Cryogenic Pilot)",
+    "inlet_size_in": 18,
+    "outlet_size_in": 20,
+    "dn_size": "18\" x 20\" (DN450 x DN500)",
+    "orifice_area_mm2": 194000.0,
+    "discharge_coeff_kd": 0.865,
+    "flange_rating": "150# / 150# ANSI",
+    "cryogenic_certified": true,
+    "standards": [
+      "API 526",
+      "ASME Sec VIII Div 1",
+      "EN ISO 4126-4",
+      "NFPA 59A",
+      "API 625"
+    ],
+    "description": "Leser 810 POSV 18x20 ultra genis orifisli kriyojenik pilot vana."
   }
 ]

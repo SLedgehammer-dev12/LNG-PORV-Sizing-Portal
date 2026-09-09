@@ -11,17 +11,19 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.2.0"
 BUILD_DATE = "2026-09-09"
 RELEASE_CHANNEL = "Stable / Production (BOTAŞ & NFPA 59A Certified)"
 GITHUB_REPO = "SLedgehammer-dev12/LNG-PORV-Sizing-Portal"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 CHANGELOG_HIGHLIGHTS = [
+    "v1.2.0: Vana seçim matrisinde %500-%800 kapasite fazlası (oversized) vanalar filtrelendi; kesin %90-%200 ve %100-%200 filtreleme getirildi.",
+    "v1.2.0: Vana havuzu genişletildi: Fukui Seisakusho, Birkett, Parker Bestobell, Herose ve Leser POSV ile 97 kriyojenik vanaya ve 12 dünya markasına ulaşıldı.",
+    "v1.2.0: API 520 Part II chattering/oversizing riskine karşı OVERSIZED durum kodu ve güvenlik uyarısı eklendi.",
     "v1.1.0: İzentalpik PH-Flash (Joule-Thomson h1=h2) genleşme motoru ve EOS entalpi modeli eklendi.",
     "v1.1.0: Vana seçim kataloğunda %90 üzeri kapasiteli tüm vanaların listelenmesi modu eklendi.",
     "v1.1.0: Otomatik Doygunluk Sıcaklığı (Bubble Point) çözücüsü entegre edildi.",
-    "v1.1.0: Güncelleme yönetimi ve versiyon kontrol paneli eklendi.",
     "v1.0.0: Yangın senaryosu API 520, GERG-2008 HEOS, Rachford-Rice VLE Flash ve vana veritabanı."
 ]
 
