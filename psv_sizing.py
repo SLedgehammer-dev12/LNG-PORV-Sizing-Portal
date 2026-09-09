@@ -188,6 +188,9 @@ def evaluate_valve_matrix(
         elif coverage_pct >= 100.0:
             status = '⚠️ SINIRDA UYGUN (Düşük Marj)'
             status_code = 'WARNING'
+        elif coverage_pct >= 90.0:
+            status = '⚠️ YAKIN KAPASİTE (%90-100 Sınırda)'
+            status_code = 'WARNING_90'
         else:
             status = '❌ YETERSİZ (Kapasite Açığı Var)'
             status_code = 'FAIL'

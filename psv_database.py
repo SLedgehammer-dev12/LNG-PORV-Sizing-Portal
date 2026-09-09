@@ -18,12 +18,15 @@ DB_PATH = get_db_path()
 
 def load_psv_database() -> list:
     """
-    Loads PSV manufacturer database from JSON file.
+    Loads PSV manufacturer database from JSON file with error protection.
     """
     db_file = get_db_path()
     if os.path.exists(db_file):
-        with open(db_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(db_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
     return []
 
 def search_matching_valves(
@@ -31,10 +34,12 @@ def search_matching_valves(
     required_air_capacity_m3_h: float = 26419.5,
     P1_kPa_a: float = 117.003,
     min_coverage_pct: float = 100.0,
-    cryogenic_only: bool = True
+    cryogenic_only: bool = True,
+    show_all_above_90: bool = False
 ) -> list:
     """
     Filters and ranks commercial valve models by coverage percentage and capacity.
+    If show_all_above_90 is True, includes all models with coverage_pct >= 90.0%.
     """
     valves = load_psv_database()
     matched_results = []
@@ -51,15 +56,22 @@ def search_matching_valves(
         
         coverage_pct = (capacity_m3_h / required_air_capacity_m3_h) * 100.0
         
+        # When show_all_above_90 is requested, skip valves strictly below 90%
+        if show_all_above_90 and coverage_pct < 90.0:
+            continue
+        
         if coverage_pct >= 110.0:
             status = '🌟 TAM UYGUN (Tavsiye Edilir)'
             recommendation_level = 1
-        elif coverage_pct >= min_coverage_pct:
+        elif coverage_pct >= 100.0:
             status = '✅ UYGUN (Sınırda Emniyetli)'
             recommendation_level = 2
+        elif coverage_pct >= 90.0:
+            status = '⚠️ YAKIN KAPASİTE (%90-%100 Sınırda/Kritik)'
+            recommendation_level = 3
         else:
             status = '❌ YETERSİZ (4+1 Vana Düzeni Veya 18" Çap Gerekir)'
-            recommendation_level = 3
+            recommendation_level = 4
             
         matched_results.append({
             'id': v['id'],
@@ -68,7 +80,7 @@ def search_matching_valves(
             'type': v['type'],
             'dn_size': v['dn_size'],
             'orifice_area_mm2': area,
-            'discharge_coeff_kd': v['discharge_coeff_kd'],
+            'discharge_coeff_kd': v.get('discharge_coeff_kd', 0.85),
             'capacity_m3_h': capacity_m3_h,
             'coverage_pct': coverage_pct,
             'status': status,

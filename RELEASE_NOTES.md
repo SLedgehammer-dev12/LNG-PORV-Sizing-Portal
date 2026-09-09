@@ -1,8 +1,35 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.0.2 (Windows EXE + macOS ARM)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.1.0 (Windows EXE + macOS)
 
-Bu sürüm, **v1.0.1** üzerindeki hesaplama düzeltmesini ve derleme/dağıtım iyileştirmelerini içerir.
+Bu sürüm; **İzentalpik PH-Flash (Joule-Thomson $h_1 = h_2$)** termodinamik motorunu, genişletilmiş kriyojenik vana kataloğunu, %90 üzeri kapasiteye sahip tüm vanaların listelenmesi modunu, otomatik doygunluk sıcaklığı çözücüsünü ve güncelleme yönetimi kontrolünü içerir.
 
 ---
+
+## 🌟 v1.1.0 Öne Çıkan Yenilikler
+
+### 1. İzentalpik PH-Flash ve EOS Entalpi Altyapısı
+- **Joule-Thomson Genleşmesi ($h_1 = h_2$)**: Gemi/transfer hattı koşullarından ($P_{\text{gemi}} \approx 4-8\text{ bar}_g$) tank basıncına ($P_{\text{tank}} \approx 200\text{ mbar}_g$) doğru gerçekleşen izentalpik genleşme tam entalpi dengesiyle modellenmiştir.
+- **Analitik EOS Entalpisi ($h = h^{\text{ideal}} + h^{\text{residual}}$)**: Peng-Robinson (PR 1976), SRK ve GERG-2008 için Aly-Lee polinom integrali ve analitik türevler entegre edilmiştir.
+- **Otomatik Flaş Sıcaklığı ($T_{\text{flash}}$)**: Genleşme sonucu tankta oluşan gerçek denge sıcaklığı otomatik hesaplanır.
+
+### 2. %90 ve Üzeri Kapasiteye Sahip Tüm Vanaların Gösterilmesi
+- Vana kataloğu eşleştirme bölümüne **"🔍 Tüm Vanaları Göster (Kapasite Oranı ≥ %90 Olan Modeller)"** filtresi eklendi.
+- Kapsama oranı %90.0 ve üzerinde olan tüm ticari modeller (sınırda uygun ve tam uygun olanlar) `⚠️ YAKIN KAPASİTE (%90-%100 Sınırda/Kritik)` etiketiyle tam şeffaflıkla listelenir.
+
+### 3. Genişletilmiş Kriyojenik Vana Kataloğu
+- Veritabanına orta ve küçük ölçekli LNG tesisleri için **4"x6", 6"x8", 8"x10", 10"x12" ve 12"x16"** sertifikalı kriyojenik pilot vanalar (Anderson Greenwood, Leser, Consolidated) eklenerek toplam model sayısı 22'ye çıkarıldı.
+
+### 4. Otomatik Doygunluk (Kaynama) Sıcaklığı Çözücüsü
+- `calculate_bubble_point_temperature()` fonksiyonu ile tank basıncında karışımın gerçek doygunluk sıcaklığı ($T_{\text{bubble}}$) otomatik çözülmektedir.
+
+### 5. Güncelleme Yönetimi Paneli
+- `version_checker.py` modülü ile GitHub API üzerinden zaman aşımlı ve çevrimdışı güvenli sürüm doğrulama ve güncelleme kontrol paneli Streamlit yan menüsüne entegre edildi.
+
+---
+
+# 🚀 Önceki Sürümler
+
+## v1.0.2 (Windows EXE + macOS ARM)
+
 
 ## 🐛 v1.0.2'de Düzeltilenler
 

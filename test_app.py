@@ -199,6 +199,66 @@ def test_module_imports_for_executability():
     assert hasattr(report_generator, 'generate_html_report')
     assert hasattr(unit_converter, 'convert_pressure_to_mbar')
 
+
+def test_version_checker():
+    """ Verify version checker metadata and update checker functions. """
+    from version_checker import get_version_info, check_for_updates, parse_version_tuple
+    info = get_version_info()
+    assert info['current_version'] == '1.1.0'
+    assert 'build_date' in info
+    assert len(info['changelog']) > 0
+    
+    assert parse_version_tuple('1.1.0') == (1, 1, 0)
+    assert parse_version_tuple('v2.0.5') == (2, 0, 5)
+    
+    upd = check_for_updates(timeout_sec=0.5)
+    assert 'current_version' in upd
+    assert 'status_message' in upd
+
+
+def test_bubble_point_temperature_calculation():
+    """ Verify calculation of mixture bubble point temperature. """
+    from vle_thermo import calculate_bubble_point_temperature
+    comp = {'CH4': 90.0, 'C2H6': 5.0, 'C3H8': 3.0, 'N2': 2.0}
+    t_bp = calculate_bubble_point_temperature(comp, pressure_kPa_a=117.0, eos='PR')
+    assert 100.0 < t_bp < 120.0, f"Expected bubble point around 108 K, got {t_bp}"
+
+
+def test_valves_above_90_percent_mode():
+    """ Verify show_all_above_90 includes borderline 90-100% valves such as 16\"x18\". """
+    from psv_database import search_matching_valves
+    # With a required capacity of ~26,400 m3/h at 117 kPa_a, 16"x18" has ~96% coverage
+    all_valves = search_matching_valves(
+        req_orifice_area_mm2=154500.0,
+        required_air_capacity_m3_h=26419.5,
+        P1_kPa_a=117.003,
+        show_all_above_90=True
+    )
+    valves_90 = [v for v in all_valves if v['coverage_pct'] >= 90.0]
+    assert len(valves_90) > 0
+    # 16"x18" valve should be present and marked as boundary / borderline
+    has_16x18 = any("16\" x 18\"" in v['dn_size'] for v in valves_90)
+    assert has_16x18, "16x18 inch valve should be included when show_all_above_90=True"
+
+
+def test_isenthalpic_ph_flash():
+    """ Verify isenthalpic PH-flash solver produces valid thermodynamic flash and temperature. """
+    from vle_thermo import calculate_isenthalpic_flash
+    comp = {'CH4': 90.0, 'C2H6': 5.0, 'C3H8': 3.0, 'N2': 2.0}
+    # Throttling from 600 kPa_a (5 bar_g) at 115 K to tank at 120 kPa_a
+    res = calculate_isenthalpic_flash(
+        comp,
+        t_feed_k=115.0,
+        p_feed_kPa_a=600.0,
+        p_flash_kPa_a=120.0,
+        eos='PR'
+    )
+    assert res['converged'] == True
+    assert 0.0 <= res['flash_pct'] <= 100.0
+    assert 95.0 <= res['T_flash_K'] <= 130.0
+
+
 if __name__ == '__main__':
     pytest.main(['-v', 'test_app.py'])
+
 

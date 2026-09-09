@@ -13,10 +13,11 @@ import json
 import logging
 
 from lng_thermo import calculate_costald_density, calculate_vapor_density, COMPONENT_DATA
-from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, calculate_isenthalpic_flash, EOS_COMPONENT_DATA
+from vle_thermo import calculate_two_phase_vle_flash, calculate_eos_mixture_properties, calculate_isenthalpic_flash, calculate_bubble_point_temperature, EOS_COMPONENT_DATA
 from psv_sizing import calculate_relieving_loads, calculate_nfpa59a_air_equivalent, calculate_api520_subcritical_orifice_area, evaluate_valve_matrix, calculate_valve_capacity, calculate_bor_tank_bog, calculate_fire_scenario_load
 from psv_database import search_matching_valves
 from report_generator import generate_html_report
+from version_checker import get_version_info, check_for_updates
 
 from unit_converter import (
     convert_pressure_to_mbar,
@@ -95,13 +96,28 @@ st.markdown("""
 # Header Section
 st.markdown("""
 <div class="main-header">
-    <div class="main-title">⚓ LNG PORV Emniyet Vanası Boyutlandırma Portalı</div>
-    <div class="sub-title">Çoklu EOS (PR / SRK / GERG-2008), Dinamik k(T,P), VLE Flaş Motoru, COSTALD Kriyojenik Termodinamik ve API 520 Analiz Portalı</div>
+    <div class="main-title">⚓ LNG PORV Emniyet Vanası Boyutlandırma Portalı <span style="font-size: 15px; color: #38bdf8; font-weight: 500;">v1.1.0</span></div>
+    <div class="sub-title">Çoklu EOS (PR / SRK / GERG-2008), İzentalpik PH-Flaş (h₁=h₂), Dinamik k(T,P), COSTALD Termodinamik ve API 520 Analiz Portalı</div>
 </div>
 """, unsafe_allow_html=True)
 
 # Sidebar Input Controls with Dynamic Unit Selectors & EOS Selector
 st.sidebar.header("⚙️ Girdi, EOS ve Birim Ayarları")
+
+with st.sidebar.expander("🔄 Güncelleme Yönetimi & Versiyon", expanded=False):
+    ver_info = get_version_info()
+    st.markdown(f"**Mevcut Sürüm:** `v{ver_info['current_version']}`")
+    st.caption(f"**Yayın Kanalı:** {ver_info['release_channel']}")
+    st.caption(f"**Derleme Tarihi:** {ver_info['build_date']}")
+    
+    if st.button("🔔 Güncellemeleri Denetle", key="btn_check_updates"):
+        with st.spinner("Sürüm durumu denetleniyor..."):
+            upd_res = check_for_updates()
+            if upd_res["update_available"]:
+                st.warning(f"**Yeni Sürüm Mevcut:** {upd_res['latest_version']}\n\n[İndirme Sayfasına Git]({upd_res['release_url']})")
+            else:
+                st.success(f"{upd_res['status_message']}")
+
 
 eos_choice = st.sidebar.selectbox(
     "📊 Termodinamik Durum Denklemi (EOS)",
@@ -260,6 +276,13 @@ with input_tab2:
     with col_trel_u:
         T_relief_unit = st.selectbox("Buhar T Birimi", ['°C', 'K', '°F', '°R'], index=0)
     T_relief_K = convert_temperature_to_kelvin(T_relief_input, T_relief_unit)
+    
+    P_tank_est_kPa = (P_set + P_atm_min) / 10.0
+    try:
+        t_bp_est = calculate_bubble_point_temperature(comp_dict, pressure_kPa_a=P_tank_est_kPa, eos=eos_code)
+        st.caption(f"💡 *Tank Basıncındaki Doygunluk (Kaynama) Sıcaklığı:* **{t_bp_est:.2f} K ({t_bp_est - 273.15:.2f} °C)**")
+    except Exception:
+        pass
     
     total_composition_pct = sum(comp_dict.values())
     if abs(total_composition_pct - 100.0) < 0.01:
@@ -551,11 +574,12 @@ def _compute_all_results(
         governing_matrix = matrix
         governing_is_fire = False
 
-    # Matched valves use governing A_o
+    # Matched valves use governing A_o (retrieve all evaluated down to >= 90% coverage)
     matched_valves = search_matching_valves(
         req_orifice_area_mm2=governing_A_o_mm2,
         required_air_capacity_m3_h=governing_q_a_total / n_working,
-        P1_kPa_a=P1_kPa_a
+        P1_kPa_a=P1_kPa_a,
+        show_all_above_90=True
     )
 
     return {
@@ -911,7 +935,22 @@ with exp4:
 st.header("2. Entegre PSV Üretici Vana Kataloğu Eşleştirmesi")
 st.caption("Anderson Greenwood, Crosby, Consolidated, Leser, Farris ve Mercer marka katalog modellerinin sorgu sonuçları:")
 
-matched_df = pd.DataFrame(matched_valves)
+col_v_toggle, col_v_info = st.columns([3, 2])
+with col_v_toggle:
+    show_all_valves = st.checkbox(
+        "🔍 Tüm Vanaları Göster (Kapasite Oranı ≥ %90 Olan Modeller)",
+        value=True,
+        help="İşaretlendiğinde kapasite oranı %90.0'ın üzerinde olan tüm ticari modeller (sınırda uygun ve tam uygun) listelenir. İşaret kaldırıldığında sadece %100 ve üzeri modeller gösterilir."
+    )
+with col_v_info:
+    st.info("💡 %90 - %100 aralığındaki vanalar düşük marjlı sınırda alternatif modellerdir.")
+
+if show_all_valves:
+    filtered_valves = [v for v in matched_valves if v['coverage_pct'] >= 90.0]
+else:
+    filtered_valves = [v for v in matched_valves if v['coverage_pct'] >= 100.0]
+
+matched_df = pd.DataFrame(filtered_valves)
 if not matched_df.empty:
     matched_df_display = matched_df[['manufacturer', 'series', 'type', 'dn_size', 'orifice_area_mm2', 'coverage_pct', 'status', 'standards']].copy()
     matched_df_display.columns = ['Üretici Marka', 'Model Serisi', 'Vana Tipi', 'Anma Çapı', 'Orifis Alanı (mm²)', 'Kapasite Oranı (%)', 'Öneri Durumu', 'Standartlar']
@@ -923,7 +962,8 @@ if not matched_df.empty:
         })
     )
 else:
-    st.warning("Gereksinimleri karşılayan vana bulunamadı.")
+    st.warning("Seçilen filtre kriterlerini karşılayan vana bulunamadı.")
+
 
 # Interactive Plotly Charts
 st.header("3. Termodinamik & Hidrolik Grafiksel Analiz")

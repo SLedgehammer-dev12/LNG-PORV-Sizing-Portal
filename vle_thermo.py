@@ -847,3 +847,53 @@ def calculate_isenthalpic_flash(
         'y_vapor': y_mid, 'x_liquid': x_mid,
         'eos_used': eos.upper(), 'converged': converged
     }
+
+
+def calculate_bubble_point_temperature(
+    composition_mol: dict,
+    pressure_kPa_a: float,
+    eos: str = 'PR',
+    t_min_k: float = 90.0,
+    t_max_k: float = 180.0,
+    tol: float = 0.05
+) -> float:
+    """
+    Calculates bubble-point temperature T_bubble (K) where liquid begins vaporizing (V/F = 0).
+    Condition: sum(z_i * (K_i - 1)) = 0 at V/F = 0 using EOS fugacity-coupled K-values.
+    """
+    total = sum(composition_mol.values()) or 100.0
+    z = {c: pct / total for c, pct in composition_mol.items() if c in EOS_COMPONENT_DATA and pct > 0}
+    if not z:
+        z = {'CH4': 1.0}
+
+    eos_eff = eos if eos.upper() in ('PR', 'SRK') else 'PR'
+
+    def eval_f0(T_val):
+        K_eos = _compute_robust_vle_k_values(z, T_val, pressure_kPa_a, eos=eos_eff)
+        if not K_eos:
+            P_bar = pressure_kPa_a / 100.0
+            K_eos = {c: (EOS_COMPONENT_DATA[c]['Pc'] / P_bar) * math.exp(5.37 * (1.0 + EOS_COMPONENT_DATA[c]['omega']) * (1.0 - EOS_COMPONENT_DATA[c]['Tc'] / T_val)) for c in z}
+        return sum(z[c] * (K_eos[c] - 1.0) for c in z)
+
+    f_low = eval_f0(t_min_k)
+    f_high = eval_f0(t_max_k)
+
+    if f_low >= 0:
+        return float(t_min_k)
+    if f_high <= 0:
+        return float(t_max_k)
+
+    low, high = t_min_k, t_max_k
+    for _ in range(35):
+        mid = 0.5 * (low + high)
+        if (high - low) < tol:
+            return float(mid)
+        f_mid = eval_f0(mid)
+        if abs(f_mid) < 1e-5:
+            return float(mid)
+        if f_mid > 0:
+            high = mid
+        else:
+            low = mid
+    return float(0.5 * (low + high))
+

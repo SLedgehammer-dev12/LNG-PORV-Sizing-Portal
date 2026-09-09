@@ -320,7 +320,7 @@ def generate_html_report(
 """
 
     for m in matrix_results:
-        badge_class = "badge-danger" if m['status_code'] == 'FAIL' else ("badge-warning" if m['status_code'] == 'WARNING' else "badge-success")
+        badge_class = "badge-danger" if m['status_code'] == 'FAIL' else ("badge-warning" if 'WARNING' in m['status_code'] else "badge-success")
         html += f"""
             <tr>
                 <td><strong>{m['size_name']}</strong></td>
@@ -359,7 +359,7 @@ def generate_html_report(
 """
 
     for v in matched_valves:
-        badge_class = "badge-success" if "TAM UYGUN" in v['status'] else ("badge-warning" if "UGUN" in v['status'] else "badge-danger")
+        badge_class = "badge-success" if "TAM UYGUN" in v['status'] else ("badge-warning" if ("UGUN" in v['status'] or "YAKIN" in v['status']) else "badge-danger")
         html += f"""
             <tr>
                 <td><strong>{v['manufacturer']}</strong></td>
@@ -392,7 +392,7 @@ def generate_html_report(
 </div>
 
 <div class="footer">
-    <p>NFPA 59A (2019), API 625, API 620 App Q, API 520 Part I/II & ASME Sec VIII Div 1 Standartlarına Uygun Olarak Hesaplanmıştır.</p>
+    <p>NFPA 59A (2019), API 625, API 620 App Q, API 520 Part I/II & ASME Sec VIII Div 1 Standartlarına Uygun Olarak Hesaplanmıştır. | LNG PORV Sizing Portalı v1.1.0</p>
 </div>
 
 </body>
