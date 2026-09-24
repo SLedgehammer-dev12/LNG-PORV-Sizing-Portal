@@ -17,7 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.11', cache: 'pip'}
       - run: pip install -r requirements.txt pyinstaller pytest
-      - run: python -m pytest test_app.py test_unit_converter.py -v
+      - run: python -m ruff check .
+      - run: python -m pytest test_app.py test_unit_converter.py test_scenarios.py -v
       - run: |
           $S = python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))"
           pyinstaller --noconfirm --onefile --windowed --noupx --name LNG_PORV_Sizing `
@@ -35,7 +36,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.11', cache: 'pip'}
       - run: pip install -r requirements.txt pyinstaller pytest
-      - run: python -m pytest test_app.py test_unit_converter.py -v
+      - run: python -m ruff check .
+      - run: python -m pytest test_app.py test_unit_converter.py test_scenarios.py -v
       - run: |
           S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
           pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \
@@ -55,7 +57,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.11', cache: 'pip'}
       - run: pip install -r requirements.txt pyinstaller pytest
-      - run: python -m pytest test_app.py test_unit_converter.py -v
+      - run: python -m ruff check .
+      - run: python -m pytest test_app.py test_unit_converter.py test_scenarios.py -v
       - run: |
           S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
           pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \

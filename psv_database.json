@@ -16,7 +16,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Küçük ölçekli kriyojenik tank ve skid üniteleri için 2x3 inç pilot vana."
+    "description": "Küçük ölçekli kriyojenik tank ve skid üniteleri için 2x3 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_3x4",
@@ -35,7 +36,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Kompakt LNG proses ve depolama tankları için 3x4 inç pilot vana."
+    "description": "Kompakt LNG proses ve depolama tankları için 3x4 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_4x6",
@@ -54,7 +56,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "LNG kamyon dolum ve küçük tanklar için 4x6 inç pilot vana."
+    "description": "LNG kamyon dolum ve küçük tanklar için 4x6 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_6x8",
@@ -73,7 +76,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Bunkering ve küçük LNG terminalleri için 6x8 inç pilot vana."
+    "description": "Bunkering ve küçük LNG terminalleri için 6x8 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_8x10",
@@ -92,7 +96,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Küçük ölçekli LNG tankları ve proses hatları için 8x10 inç pilot vana."
+    "description": "Küçük ölçekli LNG tankları ve proses hatları için 8x10 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_10x12",
@@ -111,7 +116,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Kompakt LNG depolama ve bunkering terminalleri için 10x12 inç pilot vana."
+    "description": "Kompakt LNG depolama ve bunkering terminalleri için 10x12 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_12x16",
@@ -130,7 +136,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Orta ölçekli LNG tankları ve FSRU üniteleri için 12x16 inç pilot vana."
+    "description": "Orta ölçekli LNG tankları ve FSRU üniteleri için 12x16 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_16x18",
@@ -149,7 +156,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "BOTAŞ Şartnamesi standart ölçüsü (DN400xDN450)."
+    "description": "BOTAŞ Şartnamesi standart ölçüsü (DN400xDN450).",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_18x20",
@@ -169,7 +177,8 @@
       "NFPA 59A",
       "EN 13648"
     ],
-    "description": "Dünya standartlarında LNG depolama tankları için kriyojenik modülasyonlu pilot vana."
+    "description": "Dünya standartlarında LNG depolama tankları için kriyojenik modülasyonlu pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "ag_9300_20x24",
@@ -188,7 +197,8 @@
       "API 520/526",
       "NFPA 59A"
     ],
-    "description": "Yüksek kapasiteli tanklar için ekstra büyük orifisli pilot vana."
+    "description": "Yüksek kapasiteli tanklar için ekstra büyük orifisli pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_2x3",
@@ -207,7 +217,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 2x3 inç kompakt kriyojenik POSV."
+    "description": "Leser 2x3 inç kompakt kriyojenik POSV.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_3x4",
@@ -226,7 +237,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 3x4 inç kriyojenik pilot emniyet vanası."
+    "description": "Leser 3x4 inç kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_4x6",
@@ -245,7 +257,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 4x6 inç kriyojenik pilot vana."
+    "description": "Leser 4x6 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_6x8",
@@ -264,7 +277,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 6x8 inç küçük kapasiteli kriyojenik vana."
+    "description": "Leser 6x8 inç küçük kapasiteli kriyojenik vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_8x10",
@@ -283,7 +297,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 8x10 inç kriyojenik pilot vana."
+    "description": "Leser 8x10 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_10x12",
@@ -302,7 +317,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 10x12 inç kompakt kriyojenik POSV."
+    "description": "Leser 10x12 inç kompakt kriyojenik POSV.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_12x16",
@@ -321,7 +337,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Leser 12x16 inç kriyojenik pilot emniyet vanası."
+    "description": "Leser 12x16 inç kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_16x18",
@@ -340,7 +357,8 @@
       "ASME VIII",
       "ISO 4126-4"
     ],
-    "description": "Standart 16 inç kriyojenik Leser POSV serisi."
+    "description": "Standart 16 inç kriyojenik Leser POSV serisi.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_810_18x20",
@@ -360,7 +378,8 @@
       "ISO 4126-4",
       "AD 2000-A2"
     ],
-    "description": "Alman mühendisliği yüksek orifis alanlı kriyojenik pilot emniyet vanası."
+    "description": "Alman mühendisliği yüksek orifis alanlı kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_3x4",
@@ -378,7 +397,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 3x4 inç pilot tahliye vanası."
+    "description": "Consolidated 3x4 inç pilot tahliye vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_4x6",
@@ -396,7 +416,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 4x6 inç küçük ölçekli LNG pilot vana."
+    "description": "Consolidated 4x6 inç küçük ölçekli LNG pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_6x8",
@@ -414,7 +435,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 6x8 inç kriyojenik pilot vana."
+    "description": "Consolidated 6x8 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_8x10",
@@ -432,7 +454,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 8x10 inç pilot vana."
+    "description": "Consolidated 8x10 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_10x12",
@@ -450,7 +473,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 10x12 inç pilot tahliye vanası."
+    "description": "Consolidated 10x12 inç pilot tahliye vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_12x16",
@@ -468,7 +492,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 12x16 inç kriyojenik pilot vana."
+    "description": "Consolidated 12x16 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_16x18",
@@ -486,7 +511,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Consolidated 16x18 inç pilot vana."
+    "description": "Consolidated 16x18 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "bh_2900_18x20",
@@ -505,7 +531,8 @@
       "API 520",
       "API 620 Appendix Q"
     ],
-    "description": "Consolidated modülasyonlu pilot kriyojenik vana."
+    "description": "Consolidated modülasyonlu pilot kriyojenik vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_4x6",
@@ -523,7 +550,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris 4x6 inç kriyojenik pilot vana."
+    "description": "Farris 4x6 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_6x8",
@@ -541,7 +569,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris 6x8 inç kriyojenik pilot emniyet vanası."
+    "description": "Farris 6x8 inç kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_8x10",
@@ -559,7 +588,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris 8x10 inç kriyojenik pilot vana."
+    "description": "Farris 8x10 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_10x12",
@@ -577,7 +607,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris 10x12 inç modülasyonlu kriyojenik pilot vana."
+    "description": "Farris 10x12 inç modülasyonlu kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_12x16",
@@ -595,7 +626,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris 12x16 inç LNG depolama tankı pilot vanası."
+    "description": "Farris 12x16 inç LNG depolama tankı pilot vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_16x18",
@@ -613,7 +645,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris 16x18 inç LNG depolama tankı pilot vanası."
+    "description": "Farris 16x18 inç LNG depolama tankı pilot vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "farris_3800_18x20",
@@ -631,7 +664,8 @@
       "ASME Sec VIII",
       "API 520/526"
     ],
-    "description": "Farris LNG depolama tankları pilot vana serisi."
+    "description": "Farris LNG depolama tankları pilot vana serisi.",
+    "data_quality": "indicative"
   },
   {
     "id": "crosby_900_6x8",
@@ -649,7 +683,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Crosby 6x8 inç kriyojenik pilot emniyet vanası."
+    "description": "Crosby 6x8 inç kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "crosby_900_8x10",
@@ -667,7 +702,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Crosby 8x10 inç pilot vana."
+    "description": "Crosby 8x10 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "crosby_900_10x12",
@@ -685,7 +721,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Crosby 10x12 inç kriyojenik pilot vana."
+    "description": "Crosby 10x12 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "crosby_900_12x16",
@@ -703,7 +740,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Crosby 12x16 inç kriyojenik pilot vana."
+    "description": "Crosby 12x16 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "crosby_900_16x18",
@@ -721,7 +759,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Crosby 16x18 inç kriyojenik pilot emniyet vanası."
+    "description": "Crosby 16x18 inç kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "crosby_900_18x20",
@@ -739,7 +778,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Crosby 18 inç kriyojenik pilot emniyet vanası."
+    "description": "Crosby 18 inç kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "mercer_9500_6x8",
@@ -757,7 +797,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Mercer 6x8 inç Auto-Seat patentli kriyojenik pilot vana."
+    "description": "Mercer 6x8 inç Auto-Seat patentli kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "mercer_9500_8x10",
@@ -775,7 +816,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Mercer 8x10 inç Auto-Seat pilot vana."
+    "description": "Mercer 8x10 inç Auto-Seat pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "mercer_9500_10x12",
@@ -793,7 +835,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Mercer 10x12 inç Auto-Seat pilot vana."
+    "description": "Mercer 10x12 inç Auto-Seat pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "mercer_9500_12x16",
@@ -811,7 +854,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Mercer 12x16 inç Auto-Seat pilot vana."
+    "description": "Mercer 12x16 inç Auto-Seat pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "mercer_9500_16x18",
@@ -829,7 +873,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Mercer 16x18 inç Auto-Seat kriyojenik vana."
+    "description": "Mercer 16x18 inç Auto-Seat kriyojenik vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "mercer_9500_18x20",
@@ -847,7 +892,8 @@
       "ASME Sec VIII",
       "API 520"
     ],
-    "description": "Mercer patentli Auto-Seat pilot vana teknolojisi."
+    "description": "Mercer patentli Auto-Seat pilot vana teknolojisi.",
+    "data_quality": "indicative"
   },
   {
     "id": "br_si83_6x8",
@@ -866,7 +912,8 @@
       "AD 2000-A2",
       "API 526"
     ],
-    "description": "Bopp & Reuther Alman kriyojenik LNG pilot vanası."
+    "description": "Bopp & Reuther Alman kriyojenik LNG pilot vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "br_si83_8x10",
@@ -885,7 +932,8 @@
       "AD 2000-A2",
       "API 526"
     ],
-    "description": "Bopp & Reuther 8x10 inç pilot vana."
+    "description": "Bopp & Reuther 8x10 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "br_si83_10x12",
@@ -904,7 +952,8 @@
       "AD 2000-A2",
       "API 526"
     ],
-    "description": "Bopp & Reuther 10x12 inç kriyojenik pilot vana."
+    "description": "Bopp & Reuther 10x12 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "br_si83_12x16",
@@ -923,7 +972,8 @@
       "AD 2000-A2",
       "API 526"
     ],
-    "description": "Bopp & Reuther 12x16 inç pilot emniyet vanası."
+    "description": "Bopp & Reuther 12x16 inç pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "br_si83_16x18",
@@ -942,7 +992,8 @@
       "AD 2000-A2",
       "API 526"
     ],
-    "description": "Bopp & Reuther 16x18 inç kriyojenik pilot vana."
+    "description": "Bopp & Reuther 16x18 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_2x3",
@@ -961,7 +1012,8 @@
       "AD 2000-A2",
       "ASME Sec VIII"
     ],
-    "description": "Herose Alman patentli kriyojenik tank güvenlik vanası."
+    "description": "Herose Alman patentli kriyojenik tank güvenlik vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_3x4",
@@ -980,7 +1032,8 @@
       "AD 2000-A2",
       "ASME Sec VIII"
     ],
-    "description": "Herose 3x4 inç kriyojenik güvenlik vanası."
+    "description": "Herose 3x4 inç kriyojenik güvenlik vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_4x6",
@@ -999,7 +1052,8 @@
       "AD 2000-A2",
       "ASME Sec VIII"
     ],
-    "description": "Herose 4x6 inç tam kalkışlı kriyojenik vana."
+    "description": "Herose 4x6 inç tam kalkışlı kriyojenik vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "weir_sebim_6x8",
@@ -1018,7 +1072,8 @@
       "ASME VIII",
       "API 520"
     ],
-    "description": "Weir Sebim nükleer ve kriyojenik pilot emniyet vanası."
+    "description": "Weir Sebim nükleer ve kriyojenik pilot emniyet vanası.",
+    "data_quality": "indicative"
   },
   {
     "id": "weir_sebim_8x10",
@@ -1037,7 +1092,8 @@
       "ASME VIII",
       "API 520"
     ],
-    "description": "Weir Sebim 8x10 inç kriyojenik pilot vana."
+    "description": "Weir Sebim 8x10 inç kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "weir_sebim_10x12",
@@ -1056,7 +1112,8 @@
       "ASME VIII",
       "API 520"
     ],
-    "description": "Weir Sebim 10x12 inç pilot vana."
+    "description": "Weir Sebim 10x12 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "weir_sebim_12x16",
@@ -1075,7 +1132,8 @@
       "ASME VIII",
       "API 520"
     ],
-    "description": "Weir Sebim 12x16 inç pilot vana."
+    "description": "Weir Sebim 12x16 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "weir_sebim_16x18",
@@ -1094,7 +1152,8 @@
       "ASME VIII",
       "API 520"
     ],
-    "description": "Weir Sebim 16x18 inç pilot vana."
+    "description": "Weir Sebim 16x18 inç pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_2x3",
@@ -1114,7 +1173,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui kriyojenik pilot kumandali emniyet vanasi, kucuk LNG hat ve tanklar icin."
+    "description": "Fukui kriyojenik pilot kumandali emniyet vanasi, kucuk LNG hat ve tanklar icin.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_3x4",
@@ -1134,7 +1194,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL yuksek hassasiyetli kriyojenik pilot vana, BOG ve proses tanklari icin."
+    "description": "Fukui PSL yuksek hassasiyetli kriyojenik pilot vana, BOG ve proses tanklari icin.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_4x6",
@@ -1154,7 +1215,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL kriyojenik pilot tahliye vanasi, LNG bunkering ve ara depolama tanklari."
+    "description": "Fukui PSL kriyojenik pilot tahliye vanasi, LNG bunkering ve ara depolama tanklari.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_6x8",
@@ -1174,7 +1236,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL LNG depolama tanki ve terminal pilot tahliye vanasi."
+    "description": "Fukui PSL LNG depolama tanki ve terminal pilot tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_8x10",
@@ -1194,7 +1257,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL buyuk olcekli LNG depolama ve terminal proses tanklari icin 8x10 inc PORV."
+    "description": "Fukui PSL buyuk olcekli LNG depolama ve terminal proses tanklari icin 8x10 inc PORV.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_10x12",
@@ -1214,7 +1278,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL yuksek debili LNG depolama tanki pilot emniyet vanasi."
+    "description": "Fukui PSL yuksek debili LNG depolama tanki pilot emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_12x16",
@@ -1234,7 +1299,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL ana depolama tanki tahliye vanasi, 12x16 inc genis tahliye orifisi."
+    "description": "Fukui PSL ana depolama tanki tahliye vanasi, 12x16 inc genis tahliye orifisi.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_16x18",
@@ -1255,7 +1321,8 @@
       "NFPA 59A",
       "API 625"
     ],
-    "description": "Fukui PSL 16x18 inc full-bore kriyojenik pilot vana, terminal ana tanklari icin."
+    "description": "Fukui PSL 16x18 inc full-bore kriyojenik pilot vana, terminal ana tanklari icin.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_18x20",
@@ -1276,7 +1343,8 @@
       "NFPA 59A",
       "API 625"
     ],
-    "description": "Fukui PSL 18x20 inc ekstra genis kapasiteli pilot vana, cok yuksek dolum debili tanklar."
+    "description": "Fukui PSL 18x20 inc ekstra genis kapasiteli pilot vana, cok yuksek dolum debili tanklar.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_20x24",
@@ -1297,7 +1365,8 @@
       "NFPA 59A",
       "API 625"
     ],
-    "description": "Fukui PSL 20x24 inc dev kapasiteli ultra kriyojenik pilot tahliye vanasi."
+    "description": "Fukui PSL 20x24 inc dev kapasiteli ultra kriyojenik pilot tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_md_6x8",
@@ -1317,7 +1386,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui modullu pilot ile orantili tahliye saglayan kriyojenik emniyet vanasi."
+    "description": "Fukui modullu pilot ile orantili tahliye saglayan kriyojenik emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_md_8x10",
@@ -1337,7 +1407,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL-MD 8x10 orantili modullu tahliye, minimum gaz kaybi saglar."
+    "description": "Fukui PSL-MD 8x10 orantili modullu tahliye, minimum gaz kaybi saglar.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_md_10x12",
@@ -1357,7 +1428,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL-MD 10x12 orantili modullu kriyojenik pilot vana."
+    "description": "Fukui PSL-MD 10x12 orantili modullu kriyojenik pilot vana.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_md_12x16",
@@ -1377,7 +1449,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL-MD 12x16 orantili pilot, yuksek debili depolama tanki tahliyesi."
+    "description": "Fukui PSL-MD 12x16 orantili pilot, yuksek debili depolama tanki tahliyesi.",
+    "data_quality": "indicative"
   },
   {
     "id": "fukui_psl_md_16x18",
@@ -1397,7 +1470,8 @@
       "JIS B8210",
       "NFPA 59A"
     ],
-    "description": "Fukui PSL-MD 16x18 modullu pilot vana, LNG tankinda minimum chattering riski."
+    "description": "Fukui PSL-MD 16x18 modullu pilot vana, LNG tankinda minimum chattering riski.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_2x3",
@@ -1416,7 +1490,8 @@
       "API 520/526",
       "ASME Sec VIII Div 1"
     ],
-    "description": "Birkett Series WB kriyojenik yayli emniyet vanasi, -196 C sertifikali."
+    "description": "Birkett Series WB kriyojenik yayli emniyet vanasi, -196 C sertifikali.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_3x4",
@@ -1435,7 +1510,8 @@
       "API 520/526",
       "ASME Sec VIII Div 1"
     ],
-    "description": "Birkett WB kompakt kriyojenik tank ve LNG boru hatti tahliye vanasi."
+    "description": "Birkett WB kompakt kriyojenik tank ve LNG boru hatti tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_4x6",
@@ -1454,7 +1530,8 @@
       "API 520/526",
       "ASME Sec VIII Div 1"
     ],
-    "description": "Birkett WB LNG yukleme istasyonlari ve kucuk tanklar icin emniyet vanasi."
+    "description": "Birkett WB LNG yukleme istasyonlari ve kucuk tanklar icin emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_6x8",
@@ -1474,7 +1551,8 @@
       "ASME Sec VIII Div 1",
       "NFPA 59A"
     ],
-    "description": "Birkett WB orta olcekli LNG tank ve recondenser uniteleri icin tahliye vanasi."
+    "description": "Birkett WB orta olcekli LNG tank ve recondenser uniteleri icin tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_8x10",
@@ -1494,7 +1572,8 @@
       "ASME Sec VIII Div 1",
       "NFPA 59A"
     ],
-    "description": "Birkett WB 8x10 inc LNG depolama tanki tahliye vanasi."
+    "description": "Birkett WB 8x10 inc LNG depolama tanki tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_10x12",
@@ -1514,7 +1593,8 @@
       "ASME Sec VIII Div 1",
       "NFPA 59A"
     ],
-    "description": "Birkett WB 10x12 inc genis orifisli kriyojenik emniyet vanasi."
+    "description": "Birkett WB 10x12 inc genis orifisli kriyojenik emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_12x16",
@@ -1534,7 +1614,8 @@
       "ASME Sec VIII Div 1",
       "NFPA 59A"
     ],
-    "description": "Birkett WB 12x16 inc buyuk boy depolama tanki pilot vanasi."
+    "description": "Birkett WB 12x16 inc buyuk boy depolama tanki pilot vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "birkett_wb_16x18",
@@ -1555,7 +1636,8 @@
       "NFPA 59A",
       "API 625"
     ],
-    "description": "Birkett WB 16x18 inc kriyojenik PORV, terminal ana tanklari icin."
+    "description": "Birkett WB 16x18 inc kriyojenik PORV, terminal ana tanklari icin.",
+    "data_quality": "indicative"
   },
   {
     "id": "parker_fl50_2x3",
@@ -1574,7 +1656,8 @@
       "ASME Sec VIII Div 1",
       "API 520"
     ],
-    "description": "Parker Bestobell FL50 kriyojenik LNG depolama ve yakit tanki emniyet vanasi."
+    "description": "Parker Bestobell FL50 kriyojenik LNG depolama ve yakit tanki emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "parker_fl50_3x4",
@@ -1593,7 +1676,8 @@
       "ASME Sec VIII Div 1",
       "API 520"
     ],
-    "description": "Parker Bestobell FL50 kompakt LNG proses ve depolama tanki tahliyesi."
+    "description": "Parker Bestobell FL50 kompakt LNG proses ve depolama tanki tahliyesi.",
+    "data_quality": "indicative"
   },
   {
     "id": "parker_fl50_4x6",
@@ -1612,7 +1696,8 @@
       "ASME Sec VIII Div 1",
       "API 520"
     ],
-    "description": "Parker Bestobell FL50 LNG bunkering ve dolum tanklari emniyet vanasi."
+    "description": "Parker Bestobell FL50 LNG bunkering ve dolum tanklari emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "parker_fl50_6x8",
@@ -1632,7 +1717,8 @@
       "API 520",
       "NFPA 59A"
     ],
-    "description": "Parker Bestobell FL50 6x8 kriyojenik emniyet vanasi."
+    "description": "Parker Bestobell FL50 6x8 kriyojenik emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "parker_fl50_8x10",
@@ -1652,7 +1738,8 @@
       "API 520",
       "NFPA 59A"
     ],
-    "description": "Parker Bestobell FL50 8x10 yuksek debili kriyojenik depolama tanki tahliyesi."
+    "description": "Parker Bestobell FL50 8x10 yuksek debili kriyojenik depolama tanki tahliyesi.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_6x8",
@@ -1672,7 +1759,8 @@
       "API 520",
       "NFPA 59A"
     ],
-    "description": "Herose Type 06800 genis capli kriyojenik tank ve tesis emniyet vanasi."
+    "description": "Herose Type 06800 genis capli kriyojenik tank ve tesis emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_8x10",
@@ -1692,7 +1780,8 @@
       "API 520",
       "NFPA 59A"
     ],
-    "description": "Herose Type 06800 8x10 kriyojenik depolama tanki koruma vanasi."
+    "description": "Herose Type 06800 8x10 kriyojenik depolama tanki koruma vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_10x12",
@@ -1712,7 +1801,8 @@
       "API 520",
       "NFPA 59A"
     ],
-    "description": "Herose Type 06800 10x12 yuksek debili kriyojenik tank emniyet vanasi."
+    "description": "Herose Type 06800 10x12 yuksek debili kriyojenik tank emniyet vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "herose_06800_12x16",
@@ -1732,7 +1822,8 @@
       "API 520",
       "NFPA 59A"
     ],
-    "description": "Herose Type 06800 12x16 buyuk capli LNG tanki acil tahliye vanasi."
+    "description": "Herose Type 06800 12x16 buyuk capli LNG tanki acil tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_posv_810_6x8",
@@ -1752,7 +1843,8 @@
       "EN ISO 4126-4",
       "NFPA 59A"
     ],
-    "description": "Leser 810 pilot kumandali kriyojenik emniyet vanasi, modullu acilma."
+    "description": "Leser 810 pilot kumandali kriyojenik emniyet vanasi, modullu acilma.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_posv_810_8x10",
@@ -1772,7 +1864,8 @@
       "EN ISO 4126-4",
       "NFPA 59A"
     ],
-    "description": "Leser 810 POSV 8x10 LNG tanki tahliye vanasi, yuksek tahliye katsayisi."
+    "description": "Leser 810 POSV 8x10 LNG tanki tahliye vanasi, yuksek tahliye katsayisi.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_posv_810_10x12",
@@ -1792,7 +1885,8 @@
       "EN ISO 4126-4",
       "NFPA 59A"
     ],
-    "description": "Leser 810 POSV 10x12 genis acilimli kriyojenik pilot tahliye vanasi."
+    "description": "Leser 810 POSV 10x12 genis acilimli kriyojenik pilot tahliye vanasi.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_posv_810_12x16",
@@ -1812,7 +1906,8 @@
       "EN ISO 4126-4",
       "NFPA 59A"
     ],
-    "description": "Leser 810 POSV 12x16 yuksek akisli LNG depolama tanki PORV."
+    "description": "Leser 810 POSV 12x16 yuksek akisli LNG depolama tanki PORV.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_posv_810_16x18",
@@ -1833,7 +1928,8 @@
       "NFPA 59A",
       "API 625"
     ],
-    "description": "Leser 810 POSV 16x18 full-bore kriyojenik pilot vana, terminal ana tanklari."
+    "description": "Leser 810 POSV 16x18 full-bore kriyojenik pilot vana, terminal ana tanklari.",
+    "data_quality": "indicative"
   },
   {
     "id": "leser_posv_810_18x20",
@@ -1854,6 +1950,7 @@
       "NFPA 59A",
       "API 625"
     ],
-    "description": "Leser 810 POSV 18x20 ultra genis orifisli kriyojenik pilot vana."
+    "description": "Leser 810 POSV 18x20 ultra genis orifisli kriyojenik pilot vana.",
+    "data_quality": "indicative"
   }
 ]

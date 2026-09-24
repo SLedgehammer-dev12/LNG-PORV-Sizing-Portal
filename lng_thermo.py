@@ -6,7 +6,6 @@ Supports expanded hydrocarbon (C1 to C6+) and non-hydrocarbon (N2, CO2, O2, H2, 
 """
 
 import math
-import numpy as np
 
 # Consolidated 18-Component Physical & Thermodynamic Database
 # Tc in K, Pc in bar, V_star in L/mol, M in g/mol, omega dimensionless
@@ -86,33 +85,36 @@ COMPONENT_DATA = {
     }
 }
 
-def calculate_costald_density(composition_mol_pct: dict, temperature_k: float = 118.15, pressure_bar_a: float = 1.20) -> dict:
+def calculate_costald_density(composition_mol_pct: dict, temperature_k: float = 118.15) -> dict:
     """
-    Calculates liquid LNG density using Hankinson-Brobst-Thomson (COSTALD 1979) correlation.
-    
+    Calculates saturated liquid LNG density using Hankinson-Brobst-Thomson (COSTALD 1979) correlation.
+
+    Note: COSTALD V_s is the SATURATED liquid molar volume. For LNG storage near
+    saturation conditions the compressed-liquid pressure correction is negligible
+    (< 0.1%); no pressure term is applied.
+
     :param composition_mol_pct: Dictionary of mole percentages
     :param temperature_k: Liquid temperature in Kelvin
-    :param pressure_bar_a: Pressure in bar absolute
     :return: dict with 'density_kg_m3', 'molar_mass_g_mol', details
     """
     sum_pct = sum(composition_mol_pct.values())
     if sum_pct <= 0:
         sum_pct = 100.0
-    
+
     x = {comp: pct / sum_pct for comp, pct in composition_mol_pct.items() if comp in COMPONENT_DATA and pct > 0}
     if not x:
         x = {'CH4': 1.0}
-    
+
     # 1. Mixture Molar Mass (g/mol)
     M_mix = sum(x[comp] * COMPONENT_DATA[comp]['M'] for comp in x)
-    
+
     # 2. COSTALD Characteristic Volume V_m_star (L/mol)
     sum_x_Vstar = sum(x[c] * COMPONENT_DATA[c]['V_star'] for c in x)
     sum_x_Vstar_23 = sum(x[c] * (COMPONENT_DATA[c]['V_star']**(2/3)) for c in x)
     sum_x_Vstar_13 = sum(x[c] * (COMPONENT_DATA[c]['V_star']**(1/3)) for c in x)
-    
+
     V_m_star = 0.25 * (sum_x_Vstar + 3.0 * sum_x_Vstar_23 * sum_x_Vstar_13)
-    
+
     # 3. COSTALD Pseudo-Critical Temperature T_cm (K)
     numerator_Tc = 0.0
     comp_list = list(x.keys())
@@ -123,37 +125,37 @@ def calculate_costald_density(composition_mol_pct: dict, temperature_k: float = 
             V_ij_star = math.sqrt(COMPONENT_DATA[c_i]['V_star'] * COMPONENT_DATA[c_j]['V_star'])
             T_cij = math.sqrt(COMPONENT_DATA[c_i]['Tc'] * COMPONENT_DATA[c_j]['Tc'])
             numerator_Tc += x[c_i] * x[c_j] * V_ij_star * T_cij
-            
+
     T_cm = numerator_Tc / V_m_star if V_m_star > 0 else 190.56
-    
+
     # 4. Acentric factor mixture omega_m
     omega_m = sum(x[c] * COMPONENT_DATA[c]['omega_srk'] for c in x)
-    
+
     # 5. Reduced temperature T_r
     T_r = temperature_k / T_cm
     T_r_clamped = max(0.25, min(0.999, T_r))
     tau = 1.0 - T_r_clamped
-    
-    V_0 = (1.0 
-           - 1.52816 * (tau**(1/3)) 
-           + 1.43907 * (tau**(2/3)) 
-           - 0.81446 * tau 
+
+    V_0 = (1.0
+           - 1.52816 * (tau**(1/3))
+           + 1.43907 * (tau**(2/3))
+           - 0.81446 * tau
            + 0.190454 * (tau**(4/3)))
-    
+
     # Standard Hankinson-Brobst-Thomson (1979) V_delta literature formula
     if T_r_clamped < 0.95:
         V_delta = (-0.296123 + 0.386914 * T_r_clamped - 0.0427258 * (T_r_clamped**2) - 0.0480616 * (T_r_clamped**3)) / (T_r_clamped - 1.00001)
     else:
         V_delta = (-5.30571 + 12.6397 * T_r_clamped - 9.1763 * (T_r_clamped**2) + 1.84158 * (T_r_clamped**3)) / (T_r_clamped - 1.00001)
-    
+
     # Saturated Molar Volume V_s (L/mol)
     V_s = V_m_star * V_0 * (1.0 - omega_m * V_delta)
-    
+
     if V_s > 0:
         density_kg_m3 = M_mix / V_s
     else:
         density_kg_m3 = 471.0
-        
+
     return {
         'density_kg_m3': float(density_kg_m3),
         'molar_mass_g_mol': float(M_mix),

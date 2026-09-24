@@ -1,7 +1,8 @@
 """Generate LNG tank icon for the application (macOS .icns + PNG)."""
+import os
 import struct
 import zlib
-import os
+
 
 def create_png(width, height):
     """Create a simple LNG tank icon as PNG bytes."""
@@ -16,7 +17,6 @@ def create_png(width, height):
         row = []
         for x in range(width):
             dx = x - cx
-            dy = y - cy
 
             # Dome (top): half ellipse
             dome_y = cy - tank_h/2
