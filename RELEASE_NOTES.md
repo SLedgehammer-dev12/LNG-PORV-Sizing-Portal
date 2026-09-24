@@ -38,6 +38,7 @@ Bu sürüm; **vana kapasite modelinin API 520 Part I fiziksel denklemlerine geç
 - **Boş/bozuk vana veritabanı** şema doğrulaması ve çökme koruması; veriler `indicative` olarak işaretlendi.
 - **Port fallback:** 8501 doluysa sıradaki boş port kullanılır; başlatma hatasında kullanıcıya mesaj gösterilir.
 - Sürüm numarası tek kaynaktan (`version_checker.py`) okunur; `ruff` lint + CI adımı eklendi.
+- **Paketleme koruması:** PyInstaller yerel modül toplama importları kilitlendi ve CI artık her platformda paket içeriğini (PYZ arşivi) doğrular; eksik modüllü binary yayınlanması engellenir.
 - Yanıltıcı "EOS VLE Flaş Oranı" modu kaldırıldı; üç mod: İzentalpik PH-Flaş, Sabit Oran, Manuel Debi.
 
 ### 7. Test Kapsamı Genişletildi (71 test + 60 senaryoluk kampanya)

@@ -374,6 +374,14 @@ def test_module_imports_for_executability():
     assert hasattr(report_generator, 'generate_html_report')
     assert hasattr(unit_converter, 'convert_pressure_to_mbar')
 
+    # PyInstaller collects modules by static analysis of the entry script (run_app.py).
+    # These names MUST stay bound in the run_app namespace or the packaged apps break
+    # at runtime with ModuleNotFoundError (regression: v1.4.0 ruff --fix removed them).
+    for mod in ('app', 'lng_thermo', 'vle_thermo', 'psv_sizing',
+                'psv_database', 'report_generator', 'unit_converter'):
+        assert hasattr(run_app, mod), \
+            f"run_app must import '{mod}' so PyInstaller bundles it into the app"
+
 
 def test_version_checker():
     """ Verify version checker metadata and update checker functions. """

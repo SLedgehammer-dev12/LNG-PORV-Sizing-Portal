@@ -17,7 +17,18 @@ import webbrowser
 from streamlit import config
 from streamlit.web import bootstrap
 
-# Explicit imports to force PyInstaller static analysis inclusion
+# Explicit imports to force PyInstaller static analysis inclusion.
+# CRITICAL: these imports are intentionally "unused" in code — they exist only so
+# PyInstaller bundles the local modules that Streamlit's script (app.py) imports at
+# runtime from the extracted _MEIPASS directory. DO NOT REMOVE THEM (see ruff.toml
+# per-file-ignores and test_module_imports_for_executability).
+import app  # noqa: F401
+import lng_thermo  # noqa: F401
+import vle_thermo  # noqa: F401
+import psv_sizing  # noqa: F401
+import psv_database  # noqa: F401
+import report_generator  # noqa: F401
+import unit_converter  # noqa: F401
 from version_checker import CURRENT_VERSION
 
 logger = logging.getLogger(__name__)

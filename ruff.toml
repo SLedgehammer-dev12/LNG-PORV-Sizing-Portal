@@ -11,3 +11,6 @@ ignore = [
 
 [lint.per-file-ignores]
 "test_*.py" = ["F401", "E402"]
+# run_app.py contains intentional "unused" imports that force PyInstaller to bundle
+# the local application modules (removing them breaks the packaged apps). See run_app.py.
+"run_app.py" = ["F401", "I001"]

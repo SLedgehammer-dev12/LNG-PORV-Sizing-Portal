@@ -25,6 +25,13 @@ jobs:
             --add-data "app.py;." --add-data "psv_database.json;." --add-data "${S};streamlit/static" `
             --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas `
             --copy-metadata streamlit run_app.py
+      - name: Verify bundled local modules
+        run: |
+          $list = python -m PyInstaller.utils.cliutils.archive_viewer -l -r dist/LNG_PORV_Sizing.exe | Out-String
+          foreach ($m in @('lng_thermo','vle_thermo','psv_sizing','psv_database','report_generator','unit_converter','version_checker')) {
+            if ($list -notmatch "'$m'") { Write-Error "Pakette eksik modul: $m"; exit 1 }
+          }
+          Write-Host "Paketleme dogrulamasi OK"
       - uses: actions/upload-artifact@v4
         with: {name: LNG_PORV_Sizing_Windows, path: dist/LNG_PORV_Sizing.exe, retention-days: 90}
 
@@ -47,6 +54,13 @@ jobs:
             --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
             --copy-metadata streamlit run_app.py
           ditto -c -k --sequesterRsrc --keepParent dist/LNG_PORV_Sizing.app dist/LNG_PORV_Sizing.app.zip
+      - name: Verify bundled local modules
+        run: |
+          LIST=$(python -m PyInstaller.utils.cliutils.archive_viewer -l -r dist/LNG_PORV_Sizing)
+          for m in lng_thermo vle_thermo psv_sizing psv_database report_generator unit_converter version_checker; do
+            echo "$LIST" | grep -q "$m" || { echo "Pakette eksik modul: $m"; exit 1; }
+          done
+          echo "Paketleme dogrulamasi OK"
       - uses: actions/upload-artifact@v4
         with: {name: LNG_PORV_Sizing_macOS_Intel, path: dist/LNG_PORV_Sizing.app.zip, retention-days: 90}
 
@@ -66,6 +80,13 @@ jobs:
             --collect-all streamlit --collect-all plotly --collect-all CoolProp --collect-data pandas \
             --copy-metadata streamlit run_app.py
           ditto -c -k --sequesterRsrc --keepParent dist/LNG_PORV_Sizing.app dist/LNG_PORV_Sizing.app.zip
+      - name: Verify bundled local modules
+        run: |
+          LIST=$(python -m PyInstaller.utils.cliutils.archive_viewer -l -r dist/LNG_PORV_Sizing)
+          for m in lng_thermo vle_thermo psv_sizing psv_database report_generator unit_converter version_checker; do
+            echo "$LIST" | grep -q "$m" || { echo "Pakette eksik modul: $m"; exit 1; }
+          done
+          echo "Paketleme dogrulamasi OK"
       - uses: actions/upload-artifact@v4
         with: {name: LNG_PORV_Sizing_macOS_ARM, path: dist/LNG_PORV_Sizing.app.zip, retention-days: 90}
 
