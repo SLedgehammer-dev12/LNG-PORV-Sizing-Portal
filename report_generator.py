@@ -36,7 +36,8 @@ TEXTS = {
         'sec2': "2. Termodinamik ve Akışkan Hesaplama Sonuçları",
         'method': "Yöntem / Standart",
         'rho_lng': "COSTALD Sıvı LNG Yoğunluğu (ρ_LNG)", 'rho_lng_m': "Hankinson-Brobst-Thomson (COSTALD 1979)",
-        'm_mix': "LNG Mol Kütlesi (M)", 'm_mix_m': "Karışım Kompozisyon Hesabı",
+        'm_mix': "Sıvı Faz Mol Kütlesi (M_liquid)", 'm_mix_m': "Karışım Kompozisyon Hesabı (sıvı)",
+        'm_vapor': "Buhar Faz Mol Kütlesi (M_vapor)", 'm_vapor_m': "VLE denge buharı (metanca zengin)",
         'rho_v': "Doygun Buhar Yoğunluğu (ρ_v)", 'rho_v_m': "Reel Gaz (EOS)",
         'z_factor': "Gaz Sıkıştırılabilirlik Faktörü (Z)", 'z_factor_m': "EOS VLE Flaş",
         'k_factor': "Dinamik İzantropik Üs (k = Cp/Cv)", 'k_factor_m': "EOS türevi + ideal Cp",
@@ -99,7 +100,8 @@ TEXTS = {
         'sec2': "2. Thermodynamic and Fluid Calculation Results",
         'method': "Method / Standard",
         'rho_lng': "COSTALD Liquid LNG Density (ρ_LNG)", 'rho_lng_m': "Hankinson-Brobst-Thomson (COSTALD 1979)",
-        'm_mix': "LNG Molar Mass (M)", 'm_mix_m': "Mixture Composition Calculation",
+        'm_mix': "Liquid-Phase Molar Mass (M_liquid)", 'm_mix_m': "Mixture Composition Calculation (liquid)",
+        'm_vapor': "Vapor-Phase Molar Mass (M_vapor)", 'm_vapor_m': "VLE equilibrium vapor (methane-enriched)",
         'rho_v': "Saturated Vapor Density (ρ_v)", 'rho_v_m': "Real Gas (EOS)",
         'z_factor': "Compressibility Factor (Z)", 'z_factor_m': "EOS VLE Flash",
         'k_factor': "Dynamic Isentropic Exponent (k = Cp/Cv)", 'k_factor_m': "EOS derivative + ideal Cp",
@@ -205,7 +207,7 @@ def generate_html_report(
     matrix_results: list,
     matched_valves: list,
     language: str = 'tr',
-    app_version: str = "1.4.0"
+    app_version: str = "1.4.1"
 ) -> str:
     """Generates a clean, professional HTML engineering calculation report."""
     lang = 'en' if str(language).lower().startswith('en') else 'tr'
@@ -269,6 +271,7 @@ def generate_html_report(
         <tr><th>{T['param']}</th><th>{T['value']}</th><th>{T['unit']}</th><th>{T['method']}</th></tr>
         <tr><td>{T['rho_lng']}</td><td><strong>{thermo_results.get('density_kg_m3', 0):.2f}</strong></td><td>kg/m³</td><td>{T['rho_lng_m']}</td></tr>
         <tr><td>{T['m_mix']}</td><td>{thermo_results.get('molar_mass_g_mol', 0):.2f}</td><td>g/mol</td><td>{T['m_mix_m']}</td></tr>
+        <tr><td>{T['m_vapor']}</td><td>{thermo_results.get('M_vapor', 0):.2f}</td><td>g/mol</td><td>{T['m_vapor_m']}</td></tr>
         <tr><td>{T['rho_v']}</td><td>{thermo_results.get('vapor_density', 0):.3f}</td><td>kg/m³</td><td>{T['rho_v_m']}</td></tr>
         <tr><td>{T['z_factor']}</td><td>{thermo_results.get('Z_factor', 0):.4f}</td><td>-</td><td>{T['z_factor_m']}</td></tr>
         <tr><td>{T['k_factor']}</td><td>{thermo_results.get('k_factor', 0):.4f}</td><td>-</td><td>{T['k_factor_m']}</td></tr>
@@ -295,7 +298,7 @@ def generate_html_report(
             <tr>
                 <td><strong>{T['qa']}</strong></td>
                 <td><code>Q_a = air capacity of A_o,gas at (P1, P2)</code></td>
-                <td>W = {sizing_results.get('w_total_kg_s', 0):.3f} kg/s | T = {inputs.get('T_relief_K', 0):.2f} K | Z = {thermo_results.get('Z_factor', 0):.4f} | M = {thermo_results.get('M_vapor', 0):.2f} g/mol</td>
+                <td>W = {sizing_results.get('w_total_kg_s', 0):.3f} kg/s | T = {inputs.get('T_relief_K', 0):.2f} K | Z = {thermo_results.get('Z_sizing', thermo_results.get('Z_factor', 0)):.4f} | M = {thermo_results.get('M_sizing', thermo_results.get('M_vapor', 0)):.2f} g/mol</td>
             </tr>
             <tr>
                 <td><strong>{T['ao']}</strong></td>

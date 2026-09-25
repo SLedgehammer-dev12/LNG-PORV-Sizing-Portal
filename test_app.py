@@ -387,7 +387,7 @@ def test_version_checker():
     """ Verify version checker metadata and update checker functions. """
     from version_checker import check_for_updates, get_version_info, parse_version_tuple
     info = get_version_info()
-    assert info['current_version'] == '1.4.0'
+    assert info['current_version'] == '1.4.1'
     assert 'build_date' in info
     assert len(info['changelog']) > 0
 
@@ -571,14 +571,14 @@ def test_report_generator_uses_real_values_and_dynamic_recommendation():
         'governing_matrix': matrix, 'fire_Z': 0.99, 'fire_k': 1.35, 'T_fire_K': 173.15,
         'isenthalpic_res': {'T_flash_K': 112.4, 'flash_pct': 2.0, 'h_feed_J_mol': -6800.0, 'converged': True},
     }
-    html = generate_html_report(inputs, thermo, sizing, matrix, [], language='tr', app_version='1.4.0')
+    html = generate_html_report(inputs, thermo, sizing, matrix, [], language='tr', app_version='1.4.1')
     assert f"{Z:.4f}" in html, "Report must show the computed Z factor"
     assert f"{M:.2f}" in html, "Report must show the computed vapor molar mass"
     assert '18" x 20" (DN450 x DN500)' not in html, "Report must not hardcode 18x20 recommendation"
     assert '10" x 12"' in html, "Report must show the dynamically selected smallest adequate valve"
-    assert 'v1.4.0' in html
+    assert 'v1.4.1' in html
     # English variant
-    html_en = generate_html_report(inputs, thermo, sizing, matrix, [], language='en', app_version='1.4.0')
+    html_en = generate_html_report(inputs, thermo, sizing, matrix, [], language='en', app_version='1.4.1')
     assert "PORV Relief Valve Sizing" in html_en
     assert "Option A (Recommended)" in html_en
 

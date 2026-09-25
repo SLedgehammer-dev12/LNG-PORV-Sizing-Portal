@@ -26,7 +26,7 @@ BASE = dict(
     flash_mode='PH', flash_pct=2.0, w_flash_manual=94200.0,
     bog_auto=True, bor=0.10, w_bog=1570.0,
     wetted=1200.0, F=0.15, L=510.0, fire_op=21.0, fire_const=70.9, fire_kd=1.0,
-    p_ship=5000.0, comp=None, rho_lng=None,
+    p_ship=5000.0, comp=None, rho_lng=None, cargo_comp=None,
 )
 
 
@@ -56,7 +56,7 @@ def run_pipeline(**overrides):
         fire_overpressure_pct=p['fire_op'], fire_q_constant_val=p['fire_const'],
         fire_K_d_val=p['fire_kd'], is_isenthalpic_mode_val=isenth,
         p_ship_mbar_g_val=p['p_ship'],
-        cargo_comp_frozen=None,
+        cargo_comp_frozen=tuple(sorted(p['cargo_comp'].items())) if p['cargo_comp'] else None,
     )
     return res, rho_lng
 
@@ -83,7 +83,7 @@ def assert_invariants(res):
 
 # --------------------------------------------------------------- anchor tests
 def test_scenario_default_anchor():
-    """Default scenario regression anchor (v1.4.0 physical model)."""
+    """Default scenario regression anchor (v1.4.x physical model)."""
     res, rho_lng = run_pipeline()
     assert_invariants(res)
     assert res['effective_flash_pct'] < 0.1
@@ -291,12 +291,72 @@ def test_scenario_report_generation_tr_en():
         'isenthalpic_res': res['isenthalpic_res'],
     }
     html_tr = generate_html_report(inputs, thermo, sizing, res['governing_matrix'],
-                                   res['matched_valves'], language='tr', app_version='1.4.0')
+                                   res['matched_valves'], language='tr', app_version='1.4.1')
     assert 'Boyutlandırma ve Termodinamik Analiz Raporu' in html_tr
     assert 'nan' not in html_tr.lower()
     html_en = generate_html_report(inputs, thermo, sizing, res['governing_matrix'],
-                                   res['matched_valves'], language='en', app_version='1.4.0')
+                                   res['matched_valves'], language='en', app_version='1.4.1')
     assert 'PORV Relief Valve Sizing' in html_en
+
+
+# ------------------------------------------------- flash / temperature consistency
+def test_scenario_ph_flash_zero_below_tank_bubble_point():
+    """VF must be exactly 0 while the cargo is subcooled relative to the tank saturation."""
+    from vle_thermo import calculate_bubble_point_temperature
+    t_bp_tank = calculate_bubble_point_temperature(DEFAULT_COMP, pressure_kPa_a=114.6, eos='PR')
+    below, _ = run_pipeline(t_cargo=t_bp_tank - 1.0)
+    above, _ = run_pipeline(t_cargo=t_bp_tank + 1.5)
+    assert below['effective_flash_pct'] == 0.0
+    assert above['effective_flash_pct'] > 0.0
+    assert below['isenthalpic_res']['T_flash_K'] < t_bp_tank + 0.5
+
+
+def test_scenario_default_auto_cargo_is_subcooled_no_flash():
+    """Regression for the observed VF=0: the auto cargo temperature is subcooled at tank pressure."""
+    res, _ = run_pipeline(t_cargo=111.27)
+    assert res['effective_flash_pct'] == 0.0
+    assert res['loads']['w_flash_kg_h'] == 0.0
+
+
+def test_scenario_molar_mass_liquid_vs_vapor():
+    """M_liquid (composition average) and M_vapor (methane-rich equilibrium vapor) must differ."""
+    res, _ = run_pipeline(t_relief=112.45)
+    m_liq = calculate_costald_density(DEFAULT_COMP, temperature_k=118.15)['molar_mass_g_mol']
+    assert res['M_vapor'] < m_liq, "Vapor must be lighter than the liquid"
+    assert res['vle_res']['y_vapor']['N2'] > 4.0 * (DEFAULT_COMP['N2'] / 100.0), \
+        "At tank saturation N2 is strongly enriched in the vapor"
+    assert res['M_vapor'] == pytest.approx(17.03, rel=0.02)
+
+
+def test_scenario_relief_temperature_consistency_changes_area():
+    """Using the physically consistent tank saturation temperature increases the required area."""
+    cold, _ = run_pipeline(t_relief=112.45)
+    warm, _ = run_pipeline(t_relief=118.15)
+    assert cold['rho_v'] > warm['rho_v']
+    assert cold['subcrit']['A_o_mm2'] > warm['subcrit']['A_o_mm2']
+    assert cold['subcrit']['A_o_mm2'] / warm['subcrit']['A_o_mm2'] > 1.02
+
+
+def test_scenario_cargo_vapor_blend_when_flashing():
+    """With a different cargo composition, the sizing gas properties must blend cargo flash vapor."""
+    cargo = {'CH4': 95.0, 'C2H6': 3.0, 'C3H8': 1.0, 'iC4H10': 0.3, 'nC4H10': 0.3, 'N2': 0.4}
+    res, _ = run_pipeline(t_cargo=125.0, cargo_comp=cargo)
+    assert res['effective_flash_pct'] > 1.0, "Hot cargo must flash"
+    assert res['cargo_vapor_blend_used'] is True
+    m_tank = res['M_vapor']
+    m_cargo = res['vle_cargo_res']['M_vapor_g_mol']
+    m_sizing = res['M_sizing']
+    lo, hi = min(m_tank, m_cargo), max(m_tank, m_cargo)
+    assert lo - 0.01 <= m_sizing <= hi + 0.01, "Blended M must lie between tank and cargo vapor M"
+    # The flash stream dominates the mole flow, so the blend must move towards the cargo vapor
+    assert abs(m_sizing - m_cargo) < abs(m_sizing - m_tank)
+
+
+def test_scenario_no_cargo_blend_without_cargo_composition():
+    """Without a separate cargo composition the sizing properties stay on the tank vapor."""
+    res, _ = run_pipeline(t_cargo=125.0)
+    assert res['cargo_vapor_blend_used'] is False
+    assert res['M_sizing'] == pytest.approx(res['M_vapor'])
 
 
 if __name__ == '__main__':

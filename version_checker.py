@@ -11,13 +11,17 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "1.4.0"
-BUILD_DATE = "2026-09-24"
+CURRENT_VERSION = "1.4.1"
+BUILD_DATE = "2026-09-25"
 RELEASE_CHANNEL = "Stable / Production (BOTAŞ & NFPA 59A Certified)"
 GITHUB_REPO = "SLedgehammer-dev12/LNG-PORV-Sizing-Portal"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 CHANGELOG_HIGHLIGHTS = [
+    "v1.4.1: Flaş/sıcaklık termodinamik tutarlılığı — T_tank ve T_relief artık tank doygunluk sıcaklığına otomatik eşitleniyor; subcooled kargoda VF=0 uyarısı ve flaş eşiği gösteriliyor.",
+    "v1.4.1: Sıcaklık tutarsızlığı uyarısı; tutarlı T_relief ile ρ_v, M_vapor ve gerekli orifis alanı fiziksel olarak doğru (≈%4 daha konservatif).",
+    "v1.4.1: M_liquid ve M_vapor etiketleri netleştirildi; rapora M_vapor satırı eklendi.",
+    "v1.4.1: Kargo kompozisyonu tanktan farklıysa boyutlandırma gazı özellikleri (M, Z, k) taşma ve flaş buharlarının mol-akışına göre harmanlanıyor.",
     "v1.4.0: Vana kapasiteleri API 520 Part I fiziksel modele geçirildi (kalibre referans kaldırıldı); 16\"x18\" artık gerçek %338 kapasiteyle OVERSIZED olarak eleniyor.",
     "v1.4.0: Kriyojenik ideal gaz Cp düzeltmesi (CoolProp referans eğrileri); metan Cp0 118 K'de %23 hatalıydı, k=Cp/Cv ve izentalpik flaş düzeltildi.",
     "v1.4.0: Cp/Cv için eksakt EOS türevi uygulandı; k artık basınca duyarlı (PR/SRK).",

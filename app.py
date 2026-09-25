@@ -132,6 +132,7 @@ INPUT_DEFAULTS = {
     'in_fire_kd_one': True,
     'in_T_tank': -160.0, 'in_T_tank_unit': '°C',
     'in_T_relief': -155.0, 'in_T_relief_unit': '°C',
+    'in_auto_sat_temp': True,
     'in_override_rho': False, 'in_rho_manual': 471.0, 'in_rho_unit': 'kg/m³',
     'in_cargo_diff': False,
     'in_P_ship': 5.0, 'in_P_ship_unit': 'bar_g',
@@ -332,28 +333,59 @@ with input_tab2:
         )
         comp_dict[k] = val
 
+    # Tank basıncındaki doygunluk sıcaklığı (sıcaklık varsayılanları ve tutarlılık kontrolü için)
+    P_tank_est_kPa = (P_set + P_atm_min) / 10.0
+    try:
+        t_bp_est = calculate_bubble_point_temperature(comp_dict, pressure_kPa_a=P_tank_est_kPa, eos=eos_code)
+    except Exception as _bp_err:
+        logger.warning(f"Tank doygunluk sıcaklığı hesaplanamadı: {_bp_err}")
+        t_bp_est = 112.45
+
     st.subheader("4. Kriyojenik Sıcaklık Girdileri")
+    auto_sat_temp = st.checkbox(
+        "Tank doygunluk sıcaklığına otomatik eşitle (T_tank = T_relief = T_doygun)",
+        value=st.session_state.get('in_auto_sat_temp', True), key='in_auto_sat_temp',
+        help="İşaretliyken sıvı ve buhar sıcaklıkları tank basıncındaki gerçek doygunluk sıcaklığına eşitlenir "
+             "(termodinamik olarak tutarlı konservatif varsayılan). Kapatarak manuel değer girebilirsiniz."
+    )
+    if auto_sat_temp:
+        st.session_state['in_T_tank_unit'] = 'K'
+        st.session_state['in_T_tank'] = round(t_bp_est, 2)
+        st.session_state['in_T_relief_unit'] = 'K'
+        st.session_state['in_T_relief'] = round(t_bp_est, 2)
+        st.info(
+            f"🌡️ Tank doygunluk sıcaklığı (P_tank = {P_tank_est_kPa:.1f} kPa_a): "
+            f"**{t_bp_est:.2f} K ({t_bp_est - 273.15:.2f} °C)** → T_tank ve T_relief bu değere eşitlendi."
+        )
+    else:
+        st.caption(f"💡 *Tank Basıncındaki Doygunluk (Kaynama) Sıcaklığı:* **{t_bp_est:.2f} K ({t_bp_est - 273.15:.2f} °C)**")
+
     col_ttank, col_ttank_u = st.columns([3, 2])
     with col_ttank:
         T_tank_input = st.number_input("Tank LNG Sıcaklığı (T_tank)", value=-160.0, step=1.0, key='in_T_tank',
+                                       disabled=auto_sat_temp,
                                        help="Tankta bulunan LNG'nin sıcaklığı. COSTALD sıvı yoğunluğu bu sıcaklıkta hesaplanır.")
     with col_ttank_u:
-        T_tank_unit = st.selectbox("Tank T Birimi", ['°C', 'K', '°F', '°R'], index=0, key="in_T_tank_unit")
+        T_tank_unit = st.selectbox("Tank T Birimi", ['°C', 'K', '°F', '°R'], index=0, key="in_T_tank_unit", disabled=auto_sat_temp)
     T_tank_K = convert_temperature_to_kelvin(T_tank_input, T_tank_unit)
 
     col_trel, col_trel_u = st.columns([3, 2])
     with col_trel:
-        T_relief_input = st.number_input("Tahliye Buhar Sıcaklığı (T_relief)", value=-155.0, step=1.0, key='in_T_relief')
+        T_relief_input = st.number_input("Tahliye Buhar Sıcaklığı (T_relief)", value=-155.0, step=1.0, key='in_T_relief',
+                                         disabled=auto_sat_temp,
+                                         help="Tahliye edilen buharın sıcaklığı; Z, k, ρ_v ve M_vapor bu sıcaklıkta hesaplanır.")
     with col_trel_u:
-        T_relief_unit = st.selectbox("Buhar T Birimi", ['°C', 'K', '°F', '°R'], index=0, key="in_T_relief_unit")
+        T_relief_unit = st.selectbox("Buhar T Birimi", ['°C', 'K', '°F', '°R'], index=0, key="in_T_relief_unit", disabled=auto_sat_temp)
     T_relief_K = convert_temperature_to_kelvin(T_relief_input, T_relief_unit)
 
-    P_tank_est_kPa = (P_set + P_atm_min) / 10.0
-    try:
-        t_bp_est = calculate_bubble_point_temperature(comp_dict, pressure_kPa_a=P_tank_est_kPa, eos=eos_code)
-        st.caption(f"💡 *Tank Basıncındaki Doygunluk (Kaynama) Sıcaklığı:* **{t_bp_est:.2f} K ({t_bp_est - 273.15:.2f} °C)**")
-    except Exception:
-        pass
+    if not auto_sat_temp and abs(T_relief_K - t_bp_est) > 2.0:
+        _sign = "sıcak" if T_relief_K > t_bp_est else "soğuk"
+        st.warning(
+            f"⚠️ **Tahliye Buhar Sıcaklığı Tutarsızlığı:** Seçilen T_relief ({T_relief_K:.2f} K) tank doygunluğundan "
+            f"({t_bp_est:.2f} K) **{abs(T_relief_K - t_bp_est):.2f} K {_sign}**. Buhar özellikleri (ρ_v, Z, M_vapor) bu "
+            f"sıcaklıkta hesaplandığından dolum/taşma yükü ve gerekli orifis alanı değişir. "
+            f"Doygunluk sıcaklığını kullanmak için otomatik eşitlemeyi açın."
+        )
 
     total_composition_pct = sum(comp_dict.values())
     if abs(total_composition_pct - 100.0) < 0.01:
@@ -368,7 +400,7 @@ with input_tab2:
     M_mix_calculated = costald_res['molar_mass_g_mol']
 
     st.info(f"**COSTALD Sıvı Yoğunluğu ({T_tank_input:.1f} {T_tank_unit})**: {rho_lng_calculated:.2f} kg/m³")
-    st.info(f"**Mol Kütlesi (M)**: {M_mix_calculated:.2f} g/mol")
+    st.info(f"**Sıvı Faz Mol Kütlesi (M_liquid)**: {M_mix_calculated:.2f} g/mol")
 
     override_rho = st.checkbox("Sıvı Yoğunluğunu Manuel Değiştir", value=False, key='in_override_rho')
     if override_rho:
@@ -480,6 +512,26 @@ with input_tab3:
                 f"sıcaklığı **{t_sat_ship:.2f} K ({t_sat_ship - 273.15:.2f} °C)**. "
                 f"Hat ısınması (+{delta_t_transfer:.2f} K) ile tank giriş sıcaklığı: **{T_cargo_K:.2f} K ({T_cargo_C:.2f} °C)**."
             )
+
+        # Subcooling / VF netliği: kargo tank basıncında doygunluğun altındaysa dolum flaşı oluşmaz
+        try:
+            t_bp_tank_cargo = calculate_bubble_point_temperature(active_flash_comp, pressure_kPa_a=P_tank_est_kPa, eos=eos_code)
+        except Exception:
+            t_bp_tank_cargo = t_bp_est
+        if T_cargo_K < t_bp_tank_cargo:
+            _dT_gerekli = max(0.0, t_bp_tank_cargo - t_sat_ship)
+            st.warning(
+                f"⚠️ **Subcooled Kargo → Dolum Flaşı Yok (VF = %0):** T_cargo ({T_cargo_K:.2f} K) tank doygunluk sıcaklığının "
+                f"({t_bp_tank_cargo:.2f} K) **{t_bp_tank_cargo - T_cargo_K:.2f} K altında**. Tank basıncı seyir basıncından yüksek "
+                f"olduğundan kargo tankta aşırı soğumuş durumdadır ve izentalpik genleşmede buharlaşma olmaz. "
+                f"Flaş oluşması için hat ısı girdisi **ΔT ≥ {_dT_gerekli:.2f} K** olmalı ya da manuel modda "
+                f"T_cargo ≥ **{t_bp_tank_cargo - 273.15:.2f} °C** girilmelidir."
+            )
+        else:
+            st.success(
+                f"🟢 **Doymuş/Kızgın Kargo:** T_cargo ({T_cargo_K:.2f} K) ≥ tank doygunluğu ({t_bp_tank_cargo:.2f} K) → "
+                f"izentalpik genleşmede dolum flaşı oluşur."
+            )
     else:
         col_tcargo, col_tcargo_u = st.columns([3, 2])
         with col_tcargo:
@@ -512,6 +564,10 @@ with input_tab3:
         index=0, key='in_flash_mode',
         help="İzentalpik flaş: Gemi LNG'sinin tank basıncına genleşmesiyle flaş oranı (NFPA 59A / API 625 uyumlu). "
              "Sabit oran/debi: kullanıcı tanımlı manuel girdi."
+    )
+    st.caption(
+        "ℹ️ *Flaş, tahliye (set) basıncında değerlendirilir: P_flash = P_set + P_atm_min. Set basıncı flaş için en düşük "
+        "(en az konservatif) varsayımdır; tank işletme basıncı set altında ise flaş oranı daha yüksek olur.*"
     )
 
     if flash_mode == "Manuel Debi Girişi":
@@ -669,16 +725,37 @@ def _compute_all_results(
         w_flash_manual_kg_h=w_flash_manual_kg_h_val
     )
 
+    # Relieving gas properties: when the cargo composition differs from the tank,
+    # the displacement/BOG stream carries tank vapor while the flash stream carries
+    # cargo vapor. Blend them by molar flow for the sizing gas properties.
+    vle_cargo_res = vle_res
+    cargo_vapor_blend_used = False
+    Z_sizing, k_sizing, M_sizing = Z_factor, k_factor, M_vapor
+    if cargo_comp_frozen and (loads['w_flash_kg_h'] > 0.0 or flash_manual_mode_val):
+        try:
+            vle_cargo_res = calculate_two_phase_vle_flash(flash_comp, temperature_k=t_relief_K, pressure_kPa_a=P_tank_kPa_a, eos=eos_code_val)
+            n_tank_stream = (loads['w_disp_kg_h'] + loads['w_bog_kg_h']) / max(1e-9, vle_res['M_vapor_g_mol'])
+            n_flash_stream = loads['w_flash_kg_h'] / max(1e-9, vle_cargo_res['M_vapor_g_mol'])
+            n_total = n_tank_stream + n_flash_stream
+            if n_total > 0 and n_flash_stream > 0:
+                Z_sizing = (n_tank_stream * vle_res['Z_gas'] + n_flash_stream * vle_cargo_res['Z_gas']) / n_total
+                k_sizing = (n_tank_stream * vle_res['k_mix'] + n_flash_stream * vle_cargo_res['k_mix']) / n_total
+                M_sizing = (n_tank_stream * vle_res['M_vapor_g_mol'] + n_flash_stream * vle_cargo_res['M_vapor_g_mol']) / n_total
+                cargo_vapor_blend_used = True
+        except Exception as err:
+            logger.warning(f"Kargo buhar özellikleri hesaplanamadı, tank buharı kullanılıyor: {err}")
+            vle_cargo_res = vle_res
+
     q_a_total = calculate_nfpa59a_air_equivalent(
-        loads['w_total_kg_s'], temperature_k=t_relief_K, Z=Z_factor, M_g_mol=M_vapor,
-        k=k_factor, K_d=0.85, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a
+        loads['w_total_kg_s'], temperature_k=t_relief_K, Z=Z_sizing, M_g_mol=M_sizing,
+        k=k_sizing, K_d=0.85, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a
     )
     q_a_per_valve = q_a_total / n_working
 
     subcrit = calculate_api520_subcritical_orifice_area(
         w_valve_kg_h=loads['w_total_kg_h'] / n_working,
         P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a,
-        temperature_k=t_relief_K, M_g_mol=M_vapor, Z=Z_factor, k=k_factor, K_d=0.85
+        temperature_k=t_relief_K, M_g_mol=M_sizing, Z=Z_sizing, k=k_sizing, K_d=0.85
     )
 
     matrix = evaluate_valve_matrix(
@@ -742,6 +819,8 @@ def _compute_all_results(
         'fire_q_constant_kW_m2': fire_q_constant_val, 'fire_K_d': fire_K_d_val,
         'vle_res': vle_res, 'Z_factor': Z_factor, 'k_factor': k_factor, 'rho_v': rho_v,
         'M_vapor': M_vapor, 'effective_flash_pct': effective_flash_pct, 'loads': loads,
+        'Z_sizing': Z_sizing, 'k_sizing': k_sizing, 'M_sizing': M_sizing,
+        'cargo_vapor_blend_used': cargo_vapor_blend_used, 'vle_cargo_res': vle_cargo_res,
         'q_a_total': q_a_total, 'q_a_per_valve': q_a_per_valve,
         'subcrit': subcrit, 'matrix': matrix,
         'fire_res': fire_res, 'fire_Z': fire_Z, 'fire_k': fire_k, 'fire_M_vapor': fire_M_vapor,
@@ -792,6 +871,10 @@ try:
     k_factor = results['k_factor']
     rho_v = results['rho_v']
     M_vapor = results['M_vapor']
+    Z_sizing = results.get('Z_sizing', Z_factor)
+    k_sizing = results.get('k_sizing', k_factor)
+    M_sizing = results.get('M_sizing', M_vapor)
+    cargo_vapor_blend_used = results.get('cargo_vapor_blend_used', False)
     effective_flash_pct = results['effective_flash_pct']
     loads = results['loads']
     q_a_total = results['q_a_total']
@@ -840,6 +923,8 @@ try:
         'density_kg_m3': rho_lng, 'molar_mass_g_mol': M_mix_calculated,
         'vapor_density': rho_v, 'Z_factor': Z_factor,
         'k_factor': k_factor, 'M_vapor': M_vapor,
+        'Z_sizing': Z_sizing, 'k_sizing': k_sizing, 'M_sizing': M_sizing,
+        'cargo_vapor_blend_used': cargo_vapor_blend_used,
         'fire_Z': fire_Z, 'fire_k': fire_k, 'fire_M_vapor': fire_M_vapor
     }
 
@@ -942,6 +1027,8 @@ with m_col5:
             flash_value = f"%{fp:.2f}"
         if isenthalpic_res['converged']:
             flash_tooltip = f"T_flash={isenthalpic_res['T_flash_K']:.2f}K"
+            if fp <= 0.001:
+                flash_tooltip += " • Subcooled (flaş yok)"
         else:
             flash_tooltip = "⚠️ Yakınsama uyarısı"
     else:
@@ -1106,11 +1193,17 @@ with exp2:
     | :--- | :---: | :---: | :---: |
     | Toplam Kütlesel Tahliye Debisi | W_total | **{loads['w_total_kg_s']:.3f}** | kg/s |
     | Tahliye Sıcaklığı | T | **{T_relief_K:.2f}** | K |
-    | Gaz Sıkıştırılabilirlik Faktörü ({vle_res['eos_used']}) | Z | **{Z_factor:.4f}** | - |
-    | Buhar Faz Mol Kütlesi | M | **{M_vapor:.2f}** | g/mol |
+    | Gaz Sıkıştırılabilirlik Faktörü ({vle_res['eos_used']}) | Z | **{Z_sizing:.4f}** | - |
+    | Buhar Faz Mol Kütlesi | M | **{M_sizing:.2f}** | g/mol |
     | **NFPA 59A Toplam Eşdeğer Hava Debisi** | **Q_a** | **{q_a_total:,.1f}** | **m³/h Hava** |
     | **Vana Başına Düşen Hava Debisi ({N_working} Çalışan)** | **Q_a,per_valve** | **{q_a_per_valve:,.1f}** | **m³/h Hava/Vana** |
     """)
+    if cargo_vapor_blend_used:
+        st.info(
+            f"🧪 **Karma Buhar Özellikleri:** Kargo kompozisyonu tanktan farklı olduğundan, boyutlandırma gazı özellikleri "
+            f"taşma+BOG buharı (tank, M={M_vapor:.2f}) ile flaş buharı (kargo, M={results.get('vle_cargo_res', {}).get('M_vapor_g_mol', float('nan')):.2f}) "
+            f"mol akışına göre harmanlanmıştır: **M={M_sizing:.2f} g/mol, Z={Z_sizing:.4f}, k={k_sizing:.4f}**."
+        )
 
 with exp3:
     st.markdown(f"""

@@ -1,60 +1,41 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.4.0 (Windows EXE + macOS)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.4.1 (Windows EXE + macOS)
 
-Bu sürüm; **vana kapasite modelinin API 520 Part I fiziksel denklemlerine geçirilmesini**, kriyojenik ideal gaz Cp ve Cp/Cv (k) hesabının düzeltilmesini, rapor veri zincirinin onarılmasını, yangın senaryosunun API 521/520 uyumlu hale getirilmesini ve tam konfigürasyon yönetimini içerir.
-
----
-
-## 🌟 v1.4.0 Öne Çıkan Yenilikler
-
-### 1. Vana Kapasitesi Artık API 520 Part I Fiziksel Modeli (Kalibrasyon Kaldırıldı)
-- Önceki sürümlerde vana hava kapasitesi, varsayılan senaryoya göre kalibre edilmiş bir referans sabitiyle (`148.500 mm² → 25.380 m³/h`) hesaplanıyordu. Bu, programın kendi API 520 gerekli orifis alanı hesabıyla **3,4 kat çelişiyordu** (ör. 16"×18" gerçekte %338 kapasite iken %97 görünüyordu).
-- Kapasite artık kritik/subkritik F2 faktörü, P1, P2, Kd ve standart hava özellikleriyle doğrudan API 520 denkleminden hesaplanır.
-- Sonuç: Vana seçim matrisi, `OVERSIZED` (>%200) filtresi ve rapor tavsiyeleri artık fiziksel olarak tutarlıdır. Varsayılan senaryoda 16"×18" ve üzeri modeller aşırı büyük olarak elenir; en küçük uygun model dinamik olarak seçilir.
-
-### 2. NFPA 59A Eşdeğer Hava Debisi (Q_a) Standartlaştırıldı
-- `0.93 × 990.8` sihirli sabitleri kaldırıldı. Q_a; proses gazı debisinin API 520 ile gerektirdiği efektif orifis alanının, aynı P1/P2 şartlarında standart hava (15 °C, 1.01325 bar_a) kapasitesi olarak hesaplanır.
-- Böylece Q_a ile vana hava kapasiteleri **aynı bazda** karşılaştırılır (tutarlılık testi: ±1e-6).
-
-### 3. Kriyojenik Termodinamik Düzeltmeler
-- **İdeal gaz Cp (Cp0):** Reid/Aly-Lee polinomları 200 K altında geçersizdir; metan Cp0'ı 118 K'de %23 düşük veriyordu. Artık CoolProp referans-EOS ideal eğrileri (`Cp0molar`) kullanılır, polinom yalnızca yedektir.
-- **Cp/Cv (k):** Boyut olarak tutarsız ve daima ideal gaz değerini döndüren eski formül, eksakt `Cp − Cv = −T·(∂P/∂T)²/(∂P/∂V)` EOS türeviyle değiştirildi. k artık basınca duyarlıdır (PR/SRK).
-- **HEOS bileşen haritası:** C6+, Ar, H2O, CO ve Air bileşenleri artık CoolProp karışımına dahil edilir (önce sessizce düşürülüyordu).
-- **COSTALD** yoğunluğu CoolProp HEOS referansıyla ±%0,5 içinde doğrulanmıştır (otomatik golden test).
-
-### 4. Yangın Senaryosu (API 521 / API 520)
-- Yangın için **ayrı overpressure** girdisi (varsayılan %21) eklendi; operasyonel %10'dan bağımsızdır.
-- Isı akısı sabiti seçilebilir: **70,9 kW/m²** (34.500 Btu/h·ft², drenaj/söndürme yok) veya **43,2 kW/m²** (21.000 Btu/h·ft², drenaj + söndürme mevcut).
-- `Kd = 1.0` yangın matrisine artık gerçekten uygulanır (önce yok sayılıyordu). Atıf API 521 §5.15 olarak düzeltildi.
-
-### 5. Rapor Onarıldı ve Dinamikleştirildi
-- Rapor, hesaplanan gerçek **Z, M_vapor, yangın değerleri** ve governing senaryoyu kullanır (önce eksik sözlükler nedeniyle varsayılan değerler basılıyordu).
-- Sabit 16"×18"/18"×20" tavsiyeleri kaldırıldı; en küçük uygun vana ve maksimum dolum debisi dinamik hesaplanır.
-- **TR/EN rapor dili**, proje künyesi (proje adı, revizyon, hazırlayan, kontrol eden) ve yazdırma (print) CSS'i eklendi. Proje başlığı artık geneldir.
-
-### 6. Robustluk, UX ve Altyapı
-- **Tam konfigürasyon kaydet/yükle:** Tüm girdiler, birimler, kompozisyonlar ve kargo kompozisyonu JSON'a kaydedilir (eski format uyumlu).
-- **Girdi doğrulama:** Sıcaklık aralıkları, P_atm_min ≤ P_atm_max, sıfır kompozisyon vb. hatalar hesaplama öncesi yakalanır.
-- **VLE yakınsama bayrağı** ve yakınsamama uyarısı; kübik kök seçiminde sonlu/pozitif kontrol.
-- **Boş/bozuk vana veritabanı** şema doğrulaması ve çökme koruması; veriler `indicative` olarak işaretlendi.
-- **Port fallback:** 8501 doluysa sıradaki boş port kullanılır; başlatma hatasında kullanıcıya mesaj gösterilir.
-- Sürüm numarası tek kaynaktan (`version_checker.py`) okunur; `ruff` lint + CI adımı eklendi.
-- **Paketleme koruması:** PyInstaller yerel modül toplama importları kilitlendi ve CI artık her platformda paket içeriğini (PYZ arşivi) doğrular; eksik modüllü binary yayınlanması engellenir.
-- Yanıltıcı "EOS VLE Flaş Oranı" modu kaldırıldı; üç mod: İzentalpik PH-Flaş, Sabit Oran, Manuel Debi.
-
-### 7. Test Kapsamı Genişletildi (71 test + 60 senaryoluk kampanya)
-- API 520 fiziksel kapasite ↔ gerekli orifis alanı tutarlılığı, 16"×18" oversized doğrulaması, Kd override.
-- COSTALD ↔ CoolProp golden karşılaştırması, PR ↔ HEOS tutarlılığı.
-- Kriyojenik Cp0, basınca duyarlı k, VLE yakınsama, saf metan PH-flaş.
-- Rapor (TR/EN, dinamik tavsiye, boş matris), DB şema doğrulaması, eksik dosya, port fallback.
-- **Streamlit AppTest uçtan uca smoke testi** (tam uygulama hatasız çalışmalı).
-- **60 senaryoluk uçtan uca fonksiyon kampanyası** (`scenario_campaign.py`): kompozisyon, EOS, sıcaklık, basınç, debi, yangın, kritik rejim, birim, dayanıklılık ve rapor/UI kategorileri; tümü PASS.
-- Kalıcı regresyon seti `test_scenarios.py` (25 test).
+Bu sürüm; **izentalpik flaş ve sıcaklık girdilerinin termodinamik tutarlılığını** sağlar, **flaş oranının neden %0 çıktığını** arayüzde açıklar ve **M_liquid / M_vapor** ayrımını netleştirir. v1.4.0'daki API 520 fiziksel model ve kriyojenik termodinamik düzeltmeleri içerir.
 
 ---
 
-## ⚠️ Önemli Uyarı (Model Değişikliği)
+## 🌟 v1.4.1 Öne Çıkan Düzeltmeler
 
-Vana kapasiteleri artık fiziksel API 520 modeline göre hesaplandığından, **önceki sürümlere göre vana önerileri değişir**. Örneğin eski sürümde 3+1 düzeninde 16"×18" → 18"×20" yükseltmesi önerilirken, yeni modelde aynı senaryoda 16"×18" fiziksel olarak %338 kapasiteye sahiptir ve aşırı büyük (chattering riski) olarak elenir; en küçük uygun model seçilir. Katalog verileri temsilidir; nihai seçim üretici sertifikalı kapasite tablosuyla doğrulanmalıdır.
+### 1. Sıcaklık Girdileri Artık Termodinamik Olarak Tutarlı
+- **T_tank ve T_relief artık tank basıncındaki gerçek doygunluk sıcaklığına (T_doygun) otomatik eşitlenir** (varsayılan açık; kapatılıp manuel girilebilir).
+- Sorun: Önceki varsayılanlar T_relief'i (−155 °C = 118,15 K) tank doygunluğundan (−160,7 °C = 112,45 K) **5,7 K sıcak** alıyordu. Bu, buhar yoğunluğunu (ρ_v) %10, buhar molar kütlesini (M_vapor) ve gerekli orifis alanını **%3,8 non-konservatif** hesaplıyordu.
+- Artık tutarlı T_relief ile ρ_v, M_vapor, Z ve k fiziksel doğru duruma karşılık gelir; alan ≈%4 daha konservatif hesaplanır.
+- Manuel modda T_relief, tank doygunluğundan >2 K saparsa **tutarsızlık uyarısı** ve alan etkisi açıklaması gösterilir.
+
+### 2. "Dolum Flaş Oranı (VF) = %0" Artık Açıklanıyor
+- Otomatik kargo sıcaklığı **seyir basıncındaki** doygunluktan (örn. 100 mbar_g → 110,77 K + ΔT 0,5 K = 111,27 K), tank ise **set basıncındaki** doygunluktan (240 mbar_g → 112,45 K) hesaplanır. Kargo tankta **1,19 K subcooled** kaldığı için izentalpik genleşmede **buharlaşma olmaz; VF=0 fiziksel olarak doğrudur**.
+- Arayüz artık bunu açıkça bildirir: **"Subcooled Kargo → Dolum Flaşı Yok (VF=%0)"** ve flaş için gereken eşik (ΔT ≥ 1,7 K veya T_cargo ≥ 112,45 K).
+- Flaş oluştuğunda yeşil "dolum flaşı oluşur" mesajı; metrik kartta "Subcooled (flaş yok)" notu.
+- Flaşın **set basıncında** değerlendirildiği (flaş için en düşük/en az konservatif varsayım) arayüzde belgelendi.
+
+### 3. M_liquid / M_vapor Netleştirildi
+- Önceki "Mol Kütlesi (M) = 18,00 g/mol" **sıvı** kompozisyon ortalamasıdır; "M_vapor = 16,13 g/mol" ise **buhar** (VLE denge) fazıdır — buhar metanca zengin, ağır bileşenler sıvıda kalır.
+- Etiketler **M_liquid** ve **M_vapor** olarak ayrıldı; rapora M_vapor satırı eklendi.
+- Tutarlı T_relief (112,45 K) ile tank buharı doğru şekilde N₂'ce zenginleşir: **M_vapor = 17,03 g/mol, y_N₂ = %8,2** (önce 16,13 / %0,64).
+
+### 4. Kargo ≠ Tank Buhar Harmanı
+- "Kargo kompozisyonu tanktan farklı" seçiliyken boyutlandırma gazı özellikleri (M, Z, k) artık **taşma+BOG tank buharı** ile **flaş kargo buharı**nın mol-akışına göre harmanıdır; sonuç arayüzde ve raporda gösterilir.
+
+### 5. Test Kapsamı
+- **77 test** (6 yeni: VF eşiği, M_liquid > M_vapor, T_relief–alan etkisi, kargo harmanı) + **60 senaryoluk kampanya (60/60 PASS)**.
+- CI, PyInstaller paketlerinin PYZ içeriğini (yerel modüller) her platformda doğrular.
+
+---
+
+## ⚠️ Önemli Notlar
+- v1.4.0'a göre **varsayılan sonuçlar ≈%4 daha konservatif** (tutarlı T_relief). Vana seçimi çoğu senaryoda değişmez; governing çoğunlukla yangın senaryosudur.
+- Flaş oranı, tank işletme basıncı set altındaysa daha yüksek olur; program tahliye (set) basıncını esas alır.
+- Vana katalog verileri temsilidir (`indicative`); nihai seçim üretici sertifikalı kapasite tablosuyla doğrulanmalıdır.
 
 ---
 
@@ -72,13 +53,23 @@ Vana kapasiteleri artık fiziksel API 520 modeline göre hesaplandığından, **
 ---
 
 ## 🧪 Doğrulama ve Testler
-- 71 birim/entegrasyon/termodinamik doğrulama testi (`pytest`) başarıyla geçer.
+- 77 birim/entegrasyon/termodinamik doğrulama testi (`pytest`) başarıyla geçer.
 - `ruff check .` lint denetimi CI'da zorunludur.
-- Streamlit AppTest ile uçtan uca uygulama smoke testi.
+- Streamlit AppTest ile uçtan uca uygulama smoke testi + 60 senaryoluk uçtan uca kampanya.
 
 ---
 
 # 🚀 Önceki Sürümler
+
+## v1.4.0
+- **API 520 Part I fiziksel vana kapasite modeli** (kalibre 25.380 referansı kaldırıldı); 16"×18" gerçek %338 kapasiteyle `OVERSIZED` elenir.
+- **NFPA 59A Q_a** API 520 eşdeğer-orifis yöntemiyle standartlaştırıldı.
+- **Kriyojenik Cp0** CoolProp referans eğrileri (metan hatası %23 → %0) ve **eksakt EOS Cp−Cv** türevi (k basınca duyarlı).
+- **Yangın senaryosu:** ayrı %21 overpressure, API 521 ısı akısı sabiti seçimi, Kd matrise uygulanıyor.
+- **Rapor** onarıldı (gerçek Z/M/yangın değerleri), dinamik tavsiye, proje künyesi, TR/EN, print CSS.
+- Tam konfigürasyon kaydet/yükle, girdi doğrulama, DB şema doğrulaması, port fallback, ruff + CI.
+- Paketleme koruması: PyInstaller modül toplama importları kilitli, CI PYZ doğrulaması.
+- v1.4.0 yeniden yayınında paketleme hatası düzeltildi (yerel modüller pakete dahil).
 
 ## v1.2.0
 - Vana seçim matrisinde aşırı boyutlandırılmış vanaların filtrelenmesi (%90-%200 / %100-%200).
