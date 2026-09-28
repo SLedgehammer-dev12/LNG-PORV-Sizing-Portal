@@ -21,6 +21,14 @@ import math
 import sys
 import time
 
+# Windows consoles default to cp1252 and crash when printing Turkish characters.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 logging.disable(logging.WARNING)
 
 import app  # noqa: E402  (imports the Streamlit app in bare mode; provides _compute_all_results)
