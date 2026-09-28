@@ -28,6 +28,7 @@ from psv_sizing import (
     calculate_nfpa59a_air_equivalent,
     calculate_relieving_loads,
     calculate_valve_capacity,
+    compute_governing_decision,
     evaluate_valve_matrix,
 )
 from report_generator import generate_html_report
@@ -944,21 +945,23 @@ def _compute_all_results(
         valve_type=valve_type_filter_val
     )
 
-    # Governing Scenario by orifice area (both required areas use the same reference Kd)
-    if fire_subcrit['A_o_mm2'] > subcrit['A_o_mm2']:
+    # Governing Scenario by orifice area (both required areas use the same reference Kd).
+    # Q_a is NOT comparable across scenarios because each scenario's air capacity is
+    # evaluated at its own relieving pressure (fire 21% vs operational 10% overpressure).
+    gov_decision = compute_governing_decision(subcrit['A_o_mm2'], fire_subcrit['A_o_mm2'])
+    governing_is_fire = gov_decision['governing'] == 'fire'
+    if governing_is_fire:
         governing_scenario = "🔥 Yangin Senaryosu (Fire Case)"
         governing_w_total_kg_h = fire_res['w_fire_kg_h']
         governing_q_a_total = fire_q_a_total
         governing_A_o_mm2 = fire_subcrit['A_o_mm2']
         governing_matrix = fire_matrix
-        governing_is_fire = True
     else:
         governing_scenario = "⚙️ Operasyonel Senaryo (Dolum + Flas + BOG)"
         governing_w_total_kg_h = loads['w_total_kg_h']
         governing_q_a_total = q_a_total
         governing_A_o_mm2 = subcrit['A_o_mm2']
         governing_matrix = matrix
-        governing_is_fire = False
 
     # Matched valves use governing air capacity (retrieve all evaluated down to >= 90% coverage)
     matched_valves = search_matching_valves(
@@ -992,6 +995,8 @@ def _compute_all_results(
         'governing_scenario': governing_scenario, 'governing_w_total_kg_h': governing_w_total_kg_h,
         'governing_q_a_total': governing_q_a_total, 'governing_A_o_mm2': governing_A_o_mm2,
         'governing_matrix': governing_matrix, 'governing_is_fire': governing_is_fire,
+        'governing_margin_pct': gov_decision['margin_pct'],
+        'governing_borderline': gov_decision['borderline'],
         'matched_valves': matched_valves, 'eos_code': eos_code_val,
         'isenthalpic_res': isenthalpic_res,
         'valve_type_filter': valve_type_filter_val
@@ -1060,6 +1065,8 @@ try:
     governing_A_o_mm2 = results['governing_A_o_mm2']
     governing_matrix = results['governing_matrix']
     governing_is_fire = results['governing_is_fire']
+    governing_margin_pct = results.get('governing_margin_pct')
+    governing_borderline = results.get('governing_borderline', False)
     matched_valves = results['matched_valves']
     isenthalpic_res = results.get('isenthalpic_res', None)
     t_mix_K = results.get('t_mix_K', T_relief_K)
@@ -1477,6 +1484,26 @@ with exp4:
     fire_is_sub = "Subcritical" if fire_subcrit['is_subcritical'] else "Critical"
     _fire_flow = (f"F2={fire_subcrit['F2']:.4f}" if fire_subcrit['is_subcritical']
                   else f"C_crit={fire_subcrit['C_crit']:.5f}, F2=1.0")
+    _gov_margin_txt = f"%{governing_margin_pct:.2f}" if governing_margin_pct is not None else "N/A"
+    _gov_op_mark = "🏆 **Governing**" if not governing_is_fire else "Operasyonel"
+    _gov_fire_mark = "🏆 **Governing**" if governing_is_fire else "Yangın"
+    st.markdown(f"""
+    #### 🧭 Governing Kararının Gerekçesi (A_o bazlı)
+    | Senaryo | W (kg/h) | Q_a (m³/h) | Q_a Basıncı P1 (kPa_a) | Gerekli A_o (mm²/valf) |
+    | :--- | ---: | ---: | ---: | ---: |
+    | {_gov_fire_mark} — Yangın | {fire_res['w_fire_kg_h']:,.1f} | {fire_q_a_total:,.1f} | {P1_fire_kPa_a:.3f} (%{fire_overpressure_pct:.0f} OP) | {fire_subcrit['A_o_mm2']:,.1f} |
+    | {_gov_op_mark} — Operasyonel | {loads['w_total_kg_h']:,.1f} | {q_a_total:,.1f} | {P1_kPa_a:.3f} (%{Overpressure_pct:.0f} OP) | {subcrit['A_o_mm2']:,.1f} |
+    | **Fark (marj)** | | | | **{_gov_margin_txt}** |
+
+    ⚠️ **Not:** Q_a değerleri her senaryonun **kendi relieving basıncında** hesaplanır (yangın %{fire_overpressure_pct:.0f}, operasyonel %{Overpressure_pct:.0f} overpressure). Bu nedenle Q_a'lar senaryolar arası doğrudan karşılaştırılamaz; governing kararı **gerekli A_o** (ortak referans Kd = 0.85) baz alınarak verilir. Aynı 1 mm² orifis, yangın basıncında daha fazla hava geçirir; bu yüzden daha küçük A_o daha büyük Q_a üretebilir.
+    """)
+    if governing_borderline and governing_margin_pct is not None:
+        st.warning(
+            f"⚠️ **Governing Sınırda:** İki senaryonun gerekli alanları arasındaki fark yalnızca **{_gov_margin_txt}** (eşik %5). "
+            f"Seçilen vana, A_o bazlı seçim gereği **her iki senaryoyu da** karşılar; ancak girdilerdeki küçük değişiklikler "
+            f"governing senaryoyu değiştirebilir — her iki senaryoyu da raporlayın."
+        )
+
     st.markdown(f"""
     #### 🚒 Yangın Senaryosu (Fire Case) Tahliye Debisi & Hüküm Süren (Governing) Senaryo Analizi
     `Q_fire = C × F × (A_wetted ^ 0.82) (kW)`

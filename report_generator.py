@@ -10,6 +10,8 @@ report languages are supported.
 import datetime
 import html
 
+from psv_sizing import compute_governing_decision
+
 
 def _esc(value) -> str:
     """HTML-escapes user-controlled or database text before interpolation."""
@@ -52,6 +54,10 @@ TEXTS = {
         'mixing_m': "Tank ve flaş buharının mol-akışı ağırlıklı karışımı; Z, k, M bu durumda (P1) hesaplanır",
         'rho_v_disp': "Yerdeğiştirme Buhar Yoğunluğu (ρ_v, P1)", 'rho_feed': "Besleme Sıvı Yoğunluğu (ρ_feed, T_cargo)",
         'm_feed': "Besleme Sıvı Mol Kütlesi (M_feed)",
+        'gov_basis': "Governing Karar Bazı",
+        'gov_basis_txt': "Gerekli A_o (ortak referans Kd = 0.85). Q_a değerleri her senaryonun kendi relieving basıncında hesaplandığından senaryolar arası doğrudan karşılaştırılamaz.",
+        'gov_margin': "Governing Marjı",
+        'gov_borderline': "Governing sınırda (iki senaryo arasındaki fark %5'in altında); seçim her iki senaryoyu da karşılamalıdır.",
         'standards': "Standart Baskıları ve Kapsam", 'composition_title': "Kullanılan LNG/Kargo Kompozisyonu (Normalize, mol %)",
         'tank_comp': "Tank LNG", 'cargo_comp': "Kargo LNG", 'raw_note': "Not: hesaplar %100'e normalize edilmiş kompozisyonla yürütülür.",
         'kd_col': "Kd", 'utilization': "Kullanım (%)",
@@ -124,6 +130,10 @@ TEXTS = {
         'mixing_m': "Molar-flow blend of tank and flash vapor; Z, k, M evaluated at this state (P1)",
         'rho_v_disp': "Displaced Vapor Density (ρ_v, P1)", 'rho_feed': "Feed Liquid Density (ρ_feed, T_cargo)",
         'm_feed': "Feed Liquid Molar Mass (M_feed)",
+        'gov_basis': "Governing Decision Basis",
+        'gov_basis_txt': "Required A_o (common reference Kd = 0.85). Q_a values are evaluated at each scenario's own relieving pressure and must not be compared across scenarios.",
+        'gov_margin': "Governing Margin",
+        'gov_borderline': "Governing is borderline (the two scenarios differ by less than 5%); the selection must satisfy both.",
         'standards': "Standard Editions and Scope", 'composition_title': "LNG/Cargo Composition Used (normalized, mol %)",
         'tank_comp': "Tank LNG", 'cargo_comp': "Cargo LNG", 'raw_note': "Note: calculations use the composition normalized to 100%.",
         'kd_col': "Kd", 'utilization': "Utilization (%)",
@@ -250,6 +260,10 @@ def generate_html_report(
     fire_subcrit = sizing_results.get('fire_subcrit', {}) or {}
     governing_scenario = _esc(sizing_results.get('governing_scenario', '-'))
     ph_flash = sizing_results.get('isenthalpic_res') or {}
+    try:
+        gov_decision = compute_governing_decision(api_details.get('A_o_mm2', 0.0), fire_subcrit.get('A_o_mm2', 0.0))
+    except (ValueError, TypeError):
+        gov_decision = None
 
     rec = _select_recommendation(matrix_results)
 
@@ -474,6 +488,9 @@ def generate_html_report(
 <div class="card">
     <h2>{T['sec5']}</h2>
     <p><strong>{T['governing']}:</strong> {governing_scenario} (A_o = {sizing_results.get('governing_A_o_mm2', 0):,.1f} mm²)</p>
+    <p><strong>{T['gov_basis']}:</strong> {T['gov_basis_txt']}
+       {f"({T['gov_margin']}: %{gov_decision['margin_pct']:.2f})" if gov_decision else ""}</p>
+    {f"<p class='badge-warning'>{T['gov_borderline']}</p>" if gov_decision and gov_decision['borderline'] else ""}
 """
 
     if rec['adequate']:

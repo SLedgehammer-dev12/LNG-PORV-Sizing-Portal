@@ -204,6 +204,34 @@ def calculate_api520_subcritical_orifice_area(
     }
 
 
+def compute_governing_decision(a_op_mm2: float, a_fire_mm2: float, margin_warn_pct: float = 5.0) -> dict:
+    """
+    Selects the governing relief scenario from the required orifice areas.
+
+    A_o is the only valid common basis across scenarios: each scenario's
+    required area uses its own relieving pressure and gas state, whereas the
+    equivalent air flow Q_a embeds the scenario pressure scale and therefore
+    must not be compared across scenarios.
+
+    Returns the governing scenario ('fire' | 'operational'), the relative
+    margin between the two required areas and a 'borderline' flag when the
+    scenarios are within margin_warn_pct of each other.
+    """
+    if not all(math.isfinite(v) for v in (a_op_mm2, a_fire_mm2)):
+        raise ValueError("Governing karşılaştırması için A_o değerleri sonlu olmalıdır.")
+    if a_op_mm2 <= 0.0 or a_fire_mm2 <= 0.0:
+        raise ValueError("Governing karşılaştırması için A_o değerleri pozitif olmalıdır.")
+    a_max = max(a_op_mm2, a_fire_mm2)
+    margin_pct = abs(a_op_mm2 - a_fire_mm2) / a_max * 100.0
+    return {
+        'governing': 'fire' if a_fire_mm2 > a_op_mm2 else 'operational',
+        'margin_pct': float(margin_pct),
+        'borderline': bool(margin_pct < margin_warn_pct),
+        'a_op_mm2': float(a_op_mm2),
+        'a_fire_mm2': float(a_fire_mm2),
+    }
+
+
 def calculate_valve_air_capacity_m3_h(
     orifice_area_mm2: float,
     P1_kPa_a: float,

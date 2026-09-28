@@ -89,6 +89,9 @@ def assert_invariants(res):
     assert cap_fire == pytest.approx(res['fire_q_a_per_valve'], rel=1e-6)
     # governing scenario must be the larger required area (same Kd basis -> unbiased)
     assert res['governing_is_fire'] == (fire['A_o_mm2'] > sub['A_o_mm2'])
+    expected_margin = abs(sub['A_o_mm2'] - fire['A_o_mm2']) / max(sub['A_o_mm2'], fire['A_o_mm2']) * 100.0
+    assert res['governing_margin_pct'] == pytest.approx(expected_margin, rel=1e-9)
+    assert res['governing_borderline'] == (expected_margin < 5.0)
     # v2.0 state policy: displaced vapor density is evaluated at P1
     assert res['rho_v_disp'] > res['rho_v']
     # Every matrix capacity must use the valve's own catalog Kd
@@ -364,9 +367,11 @@ def test_scenario_report_generation_tr_en():
                                    res['matched_valves'], language='tr', app_version='2.0.0')
     assert 'Boyutlandırma ve Termodinamik Analiz Raporu' in html_tr
     assert 'nan' not in html_tr.lower()
+    assert 'Governing Karar Bazı' in html_tr, "Report must explain the A_o-based governing decision"
     html_en = generate_html_report(inputs, thermo, sizing, res['governing_matrix'],
                                    res['matched_valves'], language='en', app_version='2.0.0')
     assert 'PORV Relief Valve Sizing' in html_en
+    assert 'Governing Decision Basis' in html_en
 
 
 # ------------------------------------------------- flash / temperature consistency

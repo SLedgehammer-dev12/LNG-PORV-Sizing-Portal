@@ -367,6 +367,27 @@ def test_fire_scenario_load_coefficient_name_and_validation():
         calculate_fire_scenario_load(latent_heat_kJ_kg=0.0)
 
 
+def test_governing_decision_helper():
+    from psv_sizing import compute_governing_decision
+
+    fire = compute_governing_decision(1000.0, 1200.0)
+    assert fire['governing'] == 'fire'
+    assert fire['margin_pct'] == pytest.approx(200.0 / 1200.0 * 100.0)
+    assert fire['borderline'] is False
+
+    op = compute_governing_decision(1200.0, 1000.0)
+    assert op['governing'] == 'operational'
+
+    close = compute_governing_decision(1000.0, 1030.0)
+    assert close['borderline'] is True
+    assert close['margin_pct'] == pytest.approx(30.0 / 1030.0 * 100.0)
+
+    with pytest.raises(ValueError):
+        compute_governing_decision(0.0, 100.0)
+    with pytest.raises(ValueError):
+        compute_governing_decision(float('nan'), 100.0)
+
+
 def test_invalid_pressure_states_raise():
     """P2 >= P1 and r >= 1 must raise instead of being silently clamped."""
     with pytest.raises(ValueError):
@@ -506,7 +527,7 @@ def test_version_checker():
     """ Verify version checker metadata and update checker functions. """
     from version_checker import check_for_updates, get_version_info, parse_version_tuple
     info = get_version_info()
-    assert info['current_version'] == '2.0.0'
+    assert info['current_version'] == '2.0.1'
     assert 'build_date' in info
     assert len(info['changelog']) > 0
 
@@ -791,6 +812,9 @@ def test_app_smoke_no_exception():
     at.run()
     assert not at.exception, f"App raised: {[str(e.value) for e in at.exception]}"
     assert len(at.dataframe) >= 1, "Valve matrix dataframe should be rendered"
+    joined_md = "\n".join(str(getattr(m, 'value', m)) for m in at.markdown)
+    assert "Governing Kararının Gerekçesi" in joined_md, "Governing-decision rationale table must be rendered"
+    assert "senaryolar arası doğrudan karşılaştırılamaz" in joined_md, "Q_a comparability note must be rendered"
 
 
 if __name__ == '__main__':

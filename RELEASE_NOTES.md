@@ -1,3 +1,31 @@
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v2.0.1 (Windows EXE + macOS)
+
+Hesap motoru v2.0.0 ile aynıdır. Bu sürüm, "yangın Q_a'sı daha yüksekken neden
+operasyonel governing seçiliyor?" sorusunu gideren **açıklanabilirlik** iyileştirmesidir.
+
+---
+
+## 🌟 v2.0.1 — Governing Kararının Açıklanması
+
+### 1. Governing Kararı Mini Tablosu (Arayüz + Rapor)
+- Her senaryo için **W (kg/h) | Q_a (m³/h) | Q_a'nın hesaplandığı P1 (kPa_a) | Gerekli A_o (mm²/valf)**
+  ve iki senaryo arasındaki **marj** gösteriliyor; governing satırı işaretleniyor.
+- Karar, ortak referans Kd = 0.85 ile hesaplanan **gerekli A_o** baz alınarak veriliyor.
+
+### 2. Q_a Karşılaştırılabilirlik Notu
+- Q_a değerlerinin her senaryonun **kendi relieving basıncında** hesaplandığı (yangın %21,
+  operasyonel %10 overpressure), bu nedenle **senaryolar arası doğrudan karşılaştırılamayacağı**
+  açıkça belirtiliyor. Aynı 1 mm² orifis yangın basıncında daha fazla hava geçirir; küçük bir
+  A_o daha büyük Q_a üretebilir.
+
+### 3. Sınır Uyarısı ve Test Kapsamı
+- İki senaryo arasındaki fark **%5'in altındaysa** "governing sınırda — seçilen vana her iki
+  senaryoyu da karşılamalıdır" uyarısı veriliyor (ör. %0,46 fark).
+- `compute_governing_decision()` yardımcısı, birim testleri, rapor metin kontrolleri ve
+  AppTest UI render kontrolü eklendi (**91 test**).
+
+---
+
 # 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v2.0.0 (Windows EXE + macOS)
 
 Bu sürüm; bağımsız incelemede tespit edilen hesap doğruluğu, standart bazı ve rapor

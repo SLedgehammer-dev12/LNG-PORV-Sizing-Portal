@@ -11,13 +11,16 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "2.0.0"
+CURRENT_VERSION = "2.0.1"
 BUILD_DATE = "2026-09-28"
 RELEASE_CHANNEL = "Stable / Production (PORV ön boyutlandırma aracı)"
 GITHUB_REPO = "SLedgehammer-dev12/LNG-PORV-Sizing-Portal"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 CHANGELOG_HIGHLIGHTS = [
+    "v2.0.1: Governing kararı gerekçesi arayüzde ve raporda gösteriliyor: her senaryo için W, Q_a, Q_a'nın hesaplandığı P1 ve gerekli A_o; karar A_o bazlı.",
+    "v2.0.1: Q_a değerlerinin farklı relieving basınçlarında hesaplandığı ve senaryolar arası karşılaştırılamayacağı açıkça belirtiliyor.",
+    "v2.0.1: İki senaryo arasındaki fark %5'in altındaysa 'governing sınırda' uyarısı veriliyor (ör. %0,46 fark).",
     "v2.0.0: Molar flaş oranı kütle dengesiyle kütle debisine dönüştürülüyor (W_flash = Q·ρ_feed·β·M_vapor/M_feed); kargo farklıysa kargo yoğunluğu/mol kütlesi kullanılıyor.",
     "v2.0.0: Boyutlandırma gazı özellikleri (Z, k, M) tank+flaş buharının mol-akışı karışımından ve P1 relieving basıncından hesaplanıyor.",
     "v2.0.0: Global Kd override kaldırıldı; her vana kendi katalog Kd değeriyle değerlendiriliyor, gerekli alanlar referans Kd=0.85 ile.",
