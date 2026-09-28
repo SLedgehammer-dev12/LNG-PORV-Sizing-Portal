@@ -5,6 +5,10 @@ These tests exercise the REAL end-to-end computation pipeline
 (app._compute_all_results) with the physical API 520 valve capacity model.
 They complement test_app.py (unit/UI tests) and encode the critical findings
 of the 60-scenario functional campaign (scenario_campaign.py).
+
+NOTE: BASE uses T_relief = 118.15 K as a FIXED regression condition. The UI
+default auto-sets T_tank = T_relief to the tank saturation temperature
+(e.g. 112.45 K for the default composition); these anchors are not that state.
 """
 
 import logging
@@ -17,7 +21,11 @@ logging.disable(logging.WARNING)
 import app  # noqa: E402
 import psv_database  # noqa: E402
 from lng_thermo import calculate_costald_density  # noqa: E402
-from psv_sizing import calculate_valve_air_capacity_m3_h  # noqa: E402
+from psv_sizing import (  # noqa: E402
+    calculate_nfpa59a_air_equivalent,
+    calculate_relieving_loads,
+    calculate_valve_air_capacity_m3_h,
+)
 
 DEFAULT_COMP = {'CH4': 90.5, 'C2H6': 5.5, 'C3H8': 2.5, 'iC4H10': 0.5, 'nC4H10': 0.5, 'N2': 0.5}
 BASE = dict(
@@ -57,6 +65,7 @@ def run_pipeline(**overrides):
         fire_K_d_val=p['fire_kd'], is_isenthalpic_mode_val=isenth,
         p_ship_mbar_g_val=p['p_ship'],
         cargo_comp_frozen=tuple(sorted(p['cargo_comp'].items())) if p['cargo_comp'] else None,
+        valve_type_filter_val='pilot',  # UI default: PORV pilot-operated candidate pool
     )
     return res, rho_lng
 
@@ -73,22 +82,33 @@ def assert_invariants(res):
     balance = loads['w_disp_kg_h'] + loads['w_flash_kg_h'] + loads['w_bog_kg_h']
     assert balance == pytest.approx(loads['w_total_kg_h'], abs=0.1)
     # Q_a must equal the API 520 air capacity of the required orifice (per valve)
+    # Required areas use a common reference Kd = 0.85 for both scenarios
     cap_op = calculate_valve_air_capacity_m3_h(sub['A_o_mm2'], res['P1_kPa_a'], res['P2_kPa_a'], 0.85)
     assert cap_op == pytest.approx(res['q_a_per_valve'], rel=1e-6)
-    cap_fire = calculate_valve_air_capacity_m3_h(fire['A_o_mm2'], res['P1_fire_kPa_a'], res['P2_kPa_a'], 1.0)
+    cap_fire = calculate_valve_air_capacity_m3_h(fire['A_o_mm2'], res['P1_fire_kPa_a'], res['P2_kPa_a'], 0.85)
     assert cap_fire == pytest.approx(res['fire_q_a_per_valve'], rel=1e-6)
-    # governing scenario must be the larger required area
+    # governing scenario must be the larger required area (same Kd basis -> unbiased)
     assert res['governing_is_fire'] == (fire['A_o_mm2'] > sub['A_o_mm2'])
+    # v2.0 state policy: displaced vapor density is evaluated at P1
+    assert res['rho_v_disp'] > res['rho_v']
+    # Every matrix capacity must use the valve's own catalog Kd
+    for m in res['governing_matrix'][:5]:
+        expected = calculate_valve_air_capacity_m3_h(
+            m['orifice_area_mm2'], res['P1_fire_kPa_a'] if res['governing_is_fire'] else res['P1_kPa_a'],
+            res['P2_kPa_a'], m['discharge_coeff_kd']
+        )
+        assert m['air_capacity_m3_h'] == pytest.approx(expected, rel=1e-9)
 
 
 # --------------------------------------------------------------- anchor tests
 def test_scenario_default_anchor():
-    """Default scenario regression anchor (v1.4.x physical model)."""
+    """Default scenario regression anchor (v2.0 molar/mass + P1 state policy)."""
     res, rho_lng = run_pipeline()
     assert_invariants(res)
     assert res['effective_flash_pct'] < 0.1
-    assert res['subcrit']['A_o_mm2'] == pytest.approx(8143.0, rel=0.05)
-    assert res['fire_subcrit']['A_o_mm2'] == pytest.approx(9364.0, rel=0.05)
+    assert res['subcrit']['A_o_mm2'] == pytest.approx(8303.0, rel=0.04)
+    # Fire required area uses the reference Kd=0.85 (previously inflated by Kd=1.0)
+    assert res['fire_subcrit']['A_o_mm2'] == pytest.approx(11016.0, rel=0.04)
     assert res['governing_is_fire'] is True
     assert 450.0 < rho_lng < 470.0
     assert res['Z_factor'] == pytest.approx(0.9676, abs=0.01)
@@ -99,8 +119,10 @@ def test_scenario_fixed_2pct_flash_anchor():
     res, _ = run_pipeline(flash_mode='FIXED', flash_pct=2.0)
     assert_invariants(res)
     assert res['effective_flash_pct'] == pytest.approx(2.0, abs=0.01)
-    assert res['loads']['w_total_kg_h'] == pytest.approx(112870.0, rel=0.03)
-    assert res['subcrit']['A_o_mm2'] == pytest.approx(43190.0, rel=0.05)
+    # 2% molar V/F -> mass flow converted with M_vapor/M_feed (~0.90)
+    assert res['loads']['w_flash_kg_h'] == pytest.approx(82856.0, rel=0.04)
+    assert res['loads']['w_total_kg_h'] == pytest.approx(104296.0, rel=0.04)
+    assert res['subcrit']['A_o_mm2'] == pytest.approx(40392.0, rel=0.05)
     assert res['governing_is_fire'] is False
 
 
@@ -108,7 +130,7 @@ def test_scenario_manual_flash_uses_manual_flow():
     res, _ = run_pipeline(flash_mode='MANUAL')
     assert_invariants(res)
     assert res['loads']['w_flash_kg_h'] == pytest.approx(94200.0, abs=1.0)
-    assert res['loads']['w_total_kg_h'] == pytest.approx(115170.0, rel=0.02)
+    assert res['loads']['w_total_kg_h'] == pytest.approx(115640.0, rel=0.02)
 
 
 # --------------------------------------------------------- composition effects
@@ -248,6 +270,54 @@ def test_scenario_empty_composition_falls_back_to_methane():
     assert res['M_vapor'] == pytest.approx(16.04, rel=0.03)
 
 
+def test_scenario_max_fill_solver_uses_operational_balance():
+    """The fill-rate limit must satisfy the operational mass balance with the valve capacity."""
+    res, _ = run_pipeline()
+    op_window = [m for m in sorted(res['matrix'], key=lambda m: m['orifice_area_mm2'])
+                 if 100.0 <= m['coverage_pct'] <= 200.0]
+    assert op_window, "Operational matrix must contain a valve in the 100-200% window"
+    valve = op_window[0]
+    flash_mass_pct = (res['effective_flash_pct'] * (res['M_vapor_flash'] / res['M_feed'])
+                      if res['flash_basis'] == 'molar' else res['effective_flash_pct'])
+    q_max = app._solve_max_fill_m3_h(
+        valve, n_working=3, p1_kpa=res['P1_kPa_a'], p2_kpa=res['P2_kPa_a'],
+        t_mix_k=res['t_mix_K'], z_sizing=res['Z_sizing'], m_sizing=res['M_sizing'],
+        k_sizing=res['k_sizing'], rho_feed=res['rho_feed'], rho_v_disp=res['rho_v_disp'],
+        w_bog_kg_h=res['loads']['w_bog_kg_h'], flash_mass_pct=flash_mass_pct, q_hi_hint=80000.0
+    )
+    assert q_max is not None and q_max > 0.0
+    ld = calculate_relieving_loads(
+        q_fill_m3_h=q_max, rho_lng_kg_m3=res['rho_feed'], rho_v_kg_m3=res['rho_v_disp'],
+        flash_pct=flash_mass_pct, w_bog_kg_h=res['loads']['w_bog_kg_h'], flash_basis='mass'
+    )
+    qa = calculate_nfpa59a_air_equivalent(
+        ld['w_total_kg_s'], temperature_k=res['t_mix_K'], Z=res['Z_sizing'], M_g_mol=res['M_sizing'],
+        k=res['k_sizing'], K_d=0.85, P1_kPa_a=res['P1_kPa_a'], P2_kPa_a=res['P2_kPa_a']
+    ) / 3.0
+    assert qa == pytest.approx(valve['air_capacity_m3_h'], rel=1e-4)
+
+
+def test_scenario_max_fill_not_derived_from_fire_coverage():
+    """Because fire governs by default, the old Q_fill*coverage/100 heuristic must not apply."""
+    res, _ = run_pipeline()
+    assert res['governing_is_fire'] is True
+    fire_best = [m for m in sorted(res['governing_matrix'], key=lambda m: m['orifice_area_mm2'])
+                 if 100.0 <= m['coverage_pct'] <= 200.0][0]
+    naive_limit = 10000.0 * fire_best['coverage_pct'] / 100.0
+    op_window = [m for m in sorted(res['matrix'], key=lambda m: m['orifice_area_mm2'])
+                 if 100.0 <= m['coverage_pct'] <= 200.0][0]
+    flash_mass_pct = (res['effective_flash_pct'] * (res['M_vapor_flash'] / res['M_feed'])
+                      if res['flash_basis'] == 'molar' else res['effective_flash_pct'])
+    q_max = app._solve_max_fill_m3_h(
+        op_window, n_working=3, p1_kpa=res['P1_kPa_a'], p2_kpa=res['P2_kPa_a'],
+        t_mix_k=res['t_mix_K'], z_sizing=res['Z_sizing'], m_sizing=res['M_sizing'],
+        k_sizing=res['k_sizing'], rho_feed=res['rho_feed'], rho_v_disp=res['rho_v_disp'],
+        w_bog_kg_h=res['loads']['w_bog_kg_h'], flash_mass_pct=flash_mass_pct, q_hi_hint=80000.0
+    )
+    assert q_max is not None
+    assert abs(q_max - naive_limit) > 0.05 * naive_limit, "Fire-derived limit must not be reused"
+
+
 def test_scenario_corrupt_database_no_crash(monkeypatch):
     monkeypatch.setattr(psv_database, "get_db_path", lambda: "/tmp/nonexistent_psv_db.json")
     res, _ = run_pipeline()
@@ -291,11 +361,11 @@ def test_scenario_report_generation_tr_en():
         'isenthalpic_res': res['isenthalpic_res'],
     }
     html_tr = generate_html_report(inputs, thermo, sizing, res['governing_matrix'],
-                                   res['matched_valves'], language='tr', app_version='1.4.1')
+                                   res['matched_valves'], language='tr', app_version='2.0.0')
     assert 'Boyutlandırma ve Termodinamik Analiz Raporu' in html_tr
     assert 'nan' not in html_tr.lower()
     html_en = generate_html_report(inputs, thermo, sizing, res['governing_matrix'],
-                                   res['matched_valves'], language='en', app_version='1.4.1')
+                                   res['matched_valves'], language='en', app_version='2.0.0')
     assert 'PORV Relief Valve Sizing' in html_en
 
 
@@ -344,19 +414,31 @@ def test_scenario_cargo_vapor_blend_when_flashing():
     assert res['effective_flash_pct'] > 1.0, "Hot cargo must flash"
     assert res['cargo_vapor_blend_used'] is True
     m_tank = res['M_vapor']
-    m_cargo = res['vle_cargo_res']['M_vapor_g_mol']
+    m_flash = res['M_vapor_flash']
     m_sizing = res['M_sizing']
-    lo, hi = min(m_tank, m_cargo), max(m_tank, m_cargo)
-    assert lo - 0.01 <= m_sizing <= hi + 0.01, "Blended M must lie between tank and cargo vapor M"
-    # The flash stream dominates the mole flow, so the blend must move towards the cargo vapor
-    assert abs(m_sizing - m_cargo) < abs(m_sizing - m_tank)
+    lo, hi = min(m_tank, m_flash), max(m_tank, m_flash)
+    assert lo - 0.01 <= m_sizing <= hi + 0.01, "Blended M must lie between tank and flash vapor M"
+    # The flash stream dominates the mole flow, so the blend must move towards the flash vapor
+    assert abs(m_sizing - m_flash) < abs(m_sizing - m_tank)
+    # Mixed stream temperature lies between tank relief and flash temperatures
+    assert min(res['isenthalpic_res']['T_flash_K'], 118.15) - 0.5 <= res['t_mix_K'] <= 118.15 + 0.5
 
 
-def test_scenario_no_cargo_blend_without_cargo_composition():
-    """Without a separate cargo composition the sizing properties stay on the tank vapor."""
+def test_scenario_flash_vapor_blend_without_cargo_composition():
+    """Even with a single composition, the flash vapor stream is blended with the tank vapor."""
     res, _ = run_pipeline(t_cargo=125.0)
+    assert res['effective_flash_pct'] > 1.0
     assert res['cargo_vapor_blend_used'] is False
-    assert res['M_sizing'] == pytest.approx(res['M_vapor'])
+    # Purely numeric blend: t_mix is pulled below T_relief by the colder flash vapor
+    assert res['t_mix_K'] < 118.15
+    # Sizing state is evaluated at P1 (not at tank pressure)
+    assert res['t_mix_K'] == pytest.approx(
+        (res['loads']['w_flash_kg_h'] * res['isenthalpic_res']['T_flash_K'] / res['M_vapor_flash']
+         + (res['loads']['w_disp_kg_h'] + res['loads']['w_bog_kg_h']) * 118.15 / res['M_vapor'])
+        / (res['loads']['w_flash_kg_h'] / res['M_vapor_flash']
+           + (res['loads']['w_disp_kg_h'] + res['loads']['w_bog_kg_h']) / res['M_vapor']),
+        rel=1e-6
+    )
 
 
 if __name__ == '__main__':

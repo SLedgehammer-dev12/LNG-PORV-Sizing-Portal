@@ -259,6 +259,7 @@ def calculate_eos_mixture_properties(
     Cp_ideal = sum(x[c] * calculate_cp_ideal_component(c, T) for c in x)
     Cv_ideal = Cp_ideal - R_GAS
 
+    heos_fallback = False
     if eos.upper() in ('HEOS', 'GERG2008'):
         try:
             import CoolProp.CoolProp as CP
@@ -274,10 +275,12 @@ def calculate_eos_mixture_properties(
                 return {
                     'Z_gas': float(Z_gas), 'Z_liquid': float(Z_gas), 'k_mix': float(k_mix),
                     'Cp_ideal': float(Cp_ideal), 'Cp_real': float(cp_molar / M_coolprop * 1000.0), 'Cv_real': float(cv_molar / M_coolprop * 1000.0),
-                    'M_mix': float(M_mix), 'rho_v_kg_m3': float(rho_v), 'A': 0.0, 'B': 0.0, 'eos_name': 'HEOS (GERG-2008)'
+                    'M_mix': float(M_mix), 'rho_v_kg_m3': float(rho_v), 'A': 0.0, 'B': 0.0, 'eos_name': 'HEOS (GERG-2008)',
+                    'fallback_used': False
                 }
         except Exception as err:
             logger.warning(f"CoolProp HEOS calculation error, falling back to PR: {err}")
+            heos_fallback = True
 
     if eos.upper() == 'IDEAL':
         Z_gas = 1.0
@@ -289,7 +292,8 @@ def calculate_eos_mixture_properties(
         return {
             'Z_gas': 1.0, 'Z_liquid': 1.0, 'k_mix': float(k_mix),
             'Cp_ideal': float(Cp_ideal), 'Cp_real': float(Cp_real), 'Cv_real': float(Cv_real),
-            'M_mix': float(M_mix), 'rho_v_kg_m3': float(rho_v), 'A': 0.0, 'B': 0.0, 'eos_name': 'IDEAL'
+            'M_mix': float(M_mix), 'rho_v_kg_m3': float(rho_v), 'A': 0.0, 'B': 0.0,
+            'eos_name': 'IDEAL', 'fallback_used': False
         }
 
     a_i = {}
@@ -393,7 +397,8 @@ def calculate_eos_mixture_properties(
         'rho_v_kg_m3': float(rho_v),
         'A': float(A),
         'B': float(B),
-        'eos_name': eos.upper()
+        'eos_name': 'PR (HEOS fallback)' if heos_fallback else eos.upper(),
+        'fallback_used': heos_fallback
     }
 
 def calculate_two_phase_vle_flash(
@@ -535,6 +540,9 @@ def calculate_two_phase_vle_flash(
         'rho_v_kg_m3': vap_props['rho_v_kg_m3'],
         'M_vapor_g_mol': vap_props['M_mix'],
         'eos_used': eos.upper(),
+        'phase_split_model': 'eos_fugacity' if eos.upper() in ('PR', 'SRK') else 'wilson_initial',
+        'property_model': vap_props.get('eos_name', eos.upper()),
+        'fallback_used': bool(vap_props.get('fallback_used', False)),
         'converged': bool(converged),
         'iterations': int(iterations)
     }
@@ -841,19 +849,25 @@ def calculate_isenthalpic_flash(
     h_low, vf_low, _, _ = _compute_h_mix(z, t_min_k, P_flash, eos=eos)
     h_high, vf_high, _, _ = _compute_h_mix(z, t_max_k, P_flash, eos=eos)
 
+    # Enthalpy is evaluated with the PR reference for reference-state consistency
+    # whenever HEOS/IDEAL is requested (documented design choice; reported to the UI).
+    enthalpy_model = 'PR' if eos.upper() in ('HEOS', 'GERG2008', 'IDEAL') else eos.upper()
+
     if h_feed <= h_low:
         return {
             'v_frac_VF': 0.0, 'flash_pct': 0.0,
             'T_flash_K': t_min_k, 'h_feed_J_mol': h_feed,
             'y_vapor': z, 'x_liquid': z,
-            'eos_used': eos.upper(), 'converged': True
+            'eos_used': eos.upper(), 'enthalpy_model': enthalpy_model,
+            'search_bound_hit': True, 'converged': True
         }
     if h_feed >= h_high:
         return {
             'v_frac_VF': 1.0, 'flash_pct': 100.0,
             'T_flash_K': t_max_k, 'h_feed_J_mol': h_feed,
             'y_vapor': z, 'x_liquid': z,
-            'eos_used': eos.upper(), 'converged': True
+            'eos_used': eos.upper(), 'enthalpy_model': enthalpy_model,
+            'search_bound_hit': True, 'converged': True
         }
 
     T_low, T_high = t_min_k, t_max_k
@@ -888,7 +902,8 @@ def calculate_isenthalpic_flash(
                     'T_flash_K': _T_sat,
                     'h_feed_J_mol': h_feed,
                     'y_vapor': z, 'x_liquid': z,
-                    'eos_used': eos.upper(), 'converged': True
+                    'eos_used': eos.upper(), 'enthalpy_model': enthalpy_model,
+                    'search_bound_hit': False, 'converged': True
                 }
 
     for iteration in range(max_iter):
@@ -911,7 +926,8 @@ def calculate_isenthalpic_flash(
         'T_flash_K': T_mid if converged else 0.5 * (T_low + T_high),
         'h_feed_J_mol': h_feed,
         'y_vapor': y_mid, 'x_liquid': x_mid,
-        'eos_used': eos.upper(), 'converged': converged
+        'eos_used': eos.upper(), 'enthalpy_model': enthalpy_model,
+        'search_bound_hit': False, 'converged': converged
     }
 
 

@@ -1,6 +1,64 @@
-# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v1.4.1 (Windows EXE + macOS)
+# 🚀 LNG PORV Emniyet Vanası Boyutlandırma Portalı v2.0.0 (Windows EXE + macOS)
 
-Bu sürüm; **izentalpik flaş ve sıcaklık girdilerinin termodinamik tutarlılığını** sağlar, **flaş oranının neden %0 çıktığını** arayüzde açıklar ve **M_liquid / M_vapor** ayrımını netleştirir. v1.4.0'daki API 520 fiziksel model ve kriyojenik termodinamik düzeltmeleri içerir.
+Bu sürüm; bağımsız incelemede tespit edilen hesap doğruluğu, standart bazı ve rapor
+güvenilirliği bulgularını giderir. **Sonuçlar v1.4.1'e göre değişir** (özellikle vana
+seçimi ve yangın gerekli alanı); nihai tasarımda sertifikalı üretici verisiyle
+doğrulama zorunludur.
+
+---
+
+## 🌟 v2.0.0 Öne Çıkan Düzeltmeler
+
+### 1. Molar Flaş Oranı Kütle Dengesine Dönüştürüldü (P0)
+- PH-Flaş/VLE sonucu **molar V/F** artık `W_flash = Q_fill × ρ_feed × β × (M_vapor/M_feed)`
+  ile kütle debisine çevriliyor; "molar oranı kütle oranı gibi kullanma" hatası giderildi.
+- Sabit flaş modunda **Molar/Kütlesel baz seçimi** eklendi (varsayılan molar).
+- Kargo kompozisyonu farklıysa flaş debisinde **kargo yoğunluğu ve kargo mol kütlesi**
+  kullanılıyor.
+
+### 2. Boyutlandırma Gazı Durumu Ayrıştırıldı (P0)
+- Tank+flaş buharı **mol akışına göre karıştırılıyor**; Z, k, M bu karışımdan ve
+  **P1 relieving basıncından** hesaplanıyor (önceki aritmetik Z/k harmanı kaldırıldı).
+- `W_disp` yoğunluğu P1 bazında; raporda durum etiketleri gösteriliyor.
+
+### 3. Kd Politikası Düzeltildi (P0)
+- Yangın matrisine uygulanan **global Kd=1.0 override kaldırıldı**; her vana kendi
+  katalog Kd değeriyle değerlendiriliyor.
+- Gerekli orifis alanları (operasyonel ve yangın) **ortak referans Kd=0.85** ile
+  hesaplanıyor; hüküm süren senaryo karşılaştırması yanlılıktan kurtarıldı.
+- Kd=1.0 yalnızca ilgili model için üretici tarafından sertifikalandırılmışsa geçerlidir.
+
+### 4. Maksimum Dolum Debisi ve Rapor Metrikleri (P0)
+- `max_fill = Q_fill × coverage/100` kaldırıldı; limit **operasyonel kütle dengesinden**
+  bisection ile çözülüyor (yangın hüküm sürse bile).
+- **Kapasite Karşılama Oranı (kapsama)** ile **Gerçek Kapasite Kullanımı
+  (talep/kapasite)** ayrı gösteriliyor.
+- Kritik/subkritik akışta raporda **gerçek kullanılan denklem dalı** (F2 veya C_crit)
+  gösteriliyor.
+
+### 5. Yangın Katsayısı ve Standart Bazı (P0/P1)
+- `q_constant_kW_per_m2` → **`fire_coefficient_c_si`** (kW/m^1.64); "kW/m²" birim
+  yorumu düzeltildi.
+- Standart baskıları koda sabitlendi: NFPA 59A (2023), API 520 Part I (10. baskı),
+  API 520 Part II (7. baskı), API 521 (7. baskı). Kapsam: **PORV ön boyutlandırma**.
+
+### 6. EOS Şeffaflığı ve Sağlamlık (P1)
+- HEOS/İdeal için **faz ayrımı modeli, gerçek entalpi modeli, fallback ve arama sınırı**
+  durumu ekranda ve raporda raporlanıyor.
+- HTML raporu **escape ediliyor (XSS)**; boş vana DB'si UI'da güvenli hata veriyor;
+  NaN/Inf katalog ve girdiler reddediliyor; bilinmeyen birim sessizce 1.0 yerine hata veriyor.
+
+### 7. Vana Tipi Filtresi (Pilot / Yaylı)
+- Aday havuzu artık **vana tipine göre filtrelenebiliyor** (varsayılan: **Yalnızca Pilot Kumandalı**;
+  Tümü ve Yalnızca Yaylı seçenekleri). Pilot ve yaylı vanaların tip şartı belirtilmeden
+  karıştırılması engellendi; matris ve raporda **Tip** kolonu gösteriliyor.
+- Tip filtresi seçimi rapora ve standart/kapsam kartına yazılıyor.
+
+### 8. Doğrulama ve Kapsam
+- **90 pytest** (molar/kütle dönüşümü, P1 durum politikası, katalog Kd tutarlılığı,
+  max_fill solver, kritik akış, tip filtresi, XSS, boş DB, NaN/Inf, EOS fallback dahil) ve
+  **60/60 senaryo kampanyası** (CI kapısı; başarısızlıkta exit 1).
+- Standart baskıları sabitlendi; araç **PORV ön boyutlandırma** olarak konumlandırıldı.
 
 ---
 

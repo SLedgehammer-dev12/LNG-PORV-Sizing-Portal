@@ -6,10 +6,16 @@ and matches models meeting required orifice area under specific relief condition
 
 import json
 import logging
+import math
 import os
 import sys
 
 logger = logging.getLogger(__name__)
+
+
+def categorize_valve_type(type_str) -> str:
+    """Maps a free-text valve type to a coarse category: 'pilot' or 'spring'."""
+    return 'pilot' if 'pilot' in str(type_str).lower() else 'spring'
 
 REQUIRED_VALVE_FIELDS = {
     'id': str,
@@ -62,6 +68,9 @@ def validate_psv_database(raw_data) -> tuple:
             errors.append(f"Kayıt #{idx} ({entry.get('id', '?')}): tip hataları {type_errors}.")
             continue
 
+        if not math.isfinite(entry['orifice_area_mm2']) or not math.isfinite(entry['discharge_coeff_kd']):
+            errors.append(f"Kayıt #{idx} ({entry.get('id', '?')}): orifis alanı/Kd sonlu (finite) değil.")
+            continue
         if entry['orifice_area_mm2'] <= 0:
             errors.append(f"Kayıt #{idx} ({entry['id']}): orifis alanı pozitif değil.")
             continue
@@ -70,6 +79,28 @@ def validate_psv_database(raw_data) -> tuple:
             continue
         if entry['id'] in seen_ids:
             errors.append(f"Kayıt #{idx}: tekrarlanan id '{entry['id']}'.")
+            continue
+
+        # Optional data-provenance / convention fields (validated when present)
+        area_type = entry.get('area_type')
+        if area_type is not None and area_type not in ('effective', 'actual', 'unspecified'):
+            errors.append(f"Kayıt #{idx} ({entry['id']}): geçersiz area_type '{area_type}'.")
+            continue
+        kd_type = entry.get('kd_type')
+        if kd_type is not None and kd_type not in ('api_975', 'certified', 'indicative'):
+            errors.append(f"Kayıt #{idx} ({entry['id']}): geçersiz kd_type '{kd_type}'.")
+            continue
+        if 'source_url' in entry and not isinstance(entry['source_url'], str):
+            errors.append(f"Kayıt #{idx} ({entry['id']}): source_url metin olmalıdır.")
+            continue
+        if 'document_revision' in entry and not isinstance(entry['document_revision'], str):
+            errors.append(f"Kayıt #{idx} ({entry['id']}): document_revision metin olmalıdır.")
+            continue
+        if 'verified_date' in entry and not isinstance(entry['verified_date'], str):
+            errors.append(f"Kayıt #{idx} ({entry['id']}): verified_date metin olmalıdır.")
+            continue
+        if 'kd_certified_1_0' in entry and not isinstance(entry['kd_certified_1_0'], bool):
+            errors.append(f"Kayıt #{idx} ({entry['id']}): kd_certified_1_0 boolean olmalıdır.")
             continue
 
         seen_ids.add(entry['id'])
@@ -108,7 +139,8 @@ def search_matching_valves(
     min_coverage_pct: float = 100.0,
     max_coverage_pct: float = 200.0,
     cryogenic_only: bool = True,
-    show_all_above_90: bool = False
+    show_all_above_90: bool = False,
+    valve_type: str = 'all'
 ) -> list:
     """
     Filters and ranks commercial valve models by API 520 Part I air capacity coverage.
@@ -116,6 +148,9 @@ def search_matching_valves(
     The required air capacity may be given directly (required_air_capacity_m3_h) or
     derived from the required effective orifice area (req_orifice_area_mm2) at the
     same relieving pressures.
+
+    valve_type: 'all' (default), 'pilot' or 'spring'. Pilot-operated and spring-loaded
+    models must not be mixed without the project's type requirement being explicit.
 
     If show_all_above_90 is True, includes models with 90.0% <= coverage_pct <= max_coverage_pct.
     Valves with coverage_pct > max_coverage_pct (oversized >200%) are filtered out by default.
@@ -136,6 +171,8 @@ def search_matching_valves(
 
     for v in valves:
         if cryogenic_only and not v.get('cryogenic_certified', False):
+            continue
+        if valve_type in ('pilot', 'spring') and categorize_valve_type(v.get('type', '')) != valve_type:
             continue
 
         area = v['orifice_area_mm2']
@@ -177,35 +214,57 @@ def search_matching_valves(
             'discharge_coeff_kd': kd_val,
             'capacity_m3_h': capacity_m3_h,
             'coverage_pct': coverage_pct,
+            'utilization_pct': (100.0 / coverage_pct * 100.0) if coverage_pct > 0.0 else float('inf'),
             'status': status,
             'recommendation_level': recommendation_level,
+            'valve_category': categorize_valve_type(v.get('type', '')),
             'standards': ", ".join(v.get('standards', [])),
             'description': v.get('description', '')
         })
 
-    # If all valves exceed max_coverage_pct (e.g. extremely low flow rate),
-    # provide a fallback with the smallest available valves so results are not empty
+    # No candidate inside the requested window: provide an honest fallback that
+    # distinguishes "all candidates undersized" (high flow) from "all oversized"
+    # (very low flow). The previous code always returned the three SMALLEST valves
+    # and labelled them "oversized", which is wrong at high flow.
     if not matched_results and valves:
-        cryo_valves = [v for v in valves if not cryogenic_only or v.get('cryogenic_certified', False)]
+        cryo_valves = [v for v in valves
+                       if (not cryogenic_only or v.get('cryogenic_certified', False))
+                       and (valve_type not in ('pilot', 'spring')
+                            or categorize_valve_type(v.get('type', '')) == valve_type)]
         if cryo_valves:
-            sorted_cryo = sorted(cryo_valves, key=lambda v: v['orifice_area_mm2'])
-            for v in sorted_cryo[:3]:
+            scored = []
+            for v in cryo_valves:
                 area = v['orifice_area_mm2']
                 kd_val = v.get('discharge_coeff_kd', 0.85)
                 capacity_m3_h = calculate_valve_air_capacity_m3_h(area, P1_kPa_a, P2_kPa_a, K_d=kd_val)
                 cov = (capacity_m3_h / required_air_capacity_m3_h) * 100.0
+                scored.append({'v': v, 'area': area, 'kd': kd_val, 'cap': capacity_m3_h, 'cov': cov})
+
+            if min(s['cov'] for s in scored) < 100.0:
+                selected = sorted(scored, key=lambda s: -s['cov'])[:3]
+                status = '❌ YETERSİZ (Katalogda Kapasite Açığı)'
+                level = 4
+            else:
+                selected = sorted(scored, key=lambda s: s['area'])[:3]
+                status = '⚠️ AŞIRI BÜYÜK (>%200 Düşük Debi Alternatifi)'
+                level = 3
+
+            for s in selected:
+                v = s['v']
                 matched_results.append({
                     'id': v['id'],
                     'manufacturer': v['manufacturer'],
                     'series': v['series'],
                     'type': v['type'],
                     'dn_size': v['dn_size'],
-                    'orifice_area_mm2': area,
-                    'discharge_coeff_kd': kd_val,
-                    'capacity_m3_h': capacity_m3_h,
-                    'coverage_pct': cov,
-                    'status': '⚠️ AŞIRI BÜYÜK (>%200 Düşük Debi Alternatifi)',
-                    'recommendation_level': 3,
+                    'orifice_area_mm2': s['area'],
+                    'discharge_coeff_kd': s['kd'],
+                    'capacity_m3_h': s['cap'],
+                    'coverage_pct': s['cov'],
+                    'utilization_pct': (100.0 / s['cov'] * 100.0) if s['cov'] > 0.0 else float('inf'),
+                    'status': status,
+                    'recommendation_level': level,
+                    'valve_category': categorize_valve_type(v.get('type', '')),
                     'standards': ", ".join(v.get('standards', [])),
                     'description': v.get('description', '')
                 })

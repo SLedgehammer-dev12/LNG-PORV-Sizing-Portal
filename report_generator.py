@@ -8,6 +8,13 @@ report languages are supported.
 """
 
 import datetime
+import html
+
+
+def _esc(value) -> str:
+    """HTML-escapes user-controlled or database text before interpolation."""
+    return html.escape(str(value), quote=True) if value is not None else ''
+
 
 DEFAULT_PROJECT_NAME = {
     'tr': "LNG Depolama Tesisi - PORV Boyutlandırma",
@@ -41,6 +48,14 @@ TEXTS = {
         'rho_v': "Doygun Buhar Yoğunluğu (ρ_v)", 'rho_v_m': "Reel Gaz (EOS)",
         'z_factor': "Gaz Sıkıştırılabilirlik Faktörü (Z)", 'z_factor_m': "EOS VLE Flaş",
         'k_factor': "Dinamik İzantropik Üs (k = Cp/Cv)", 'k_factor_m': "EOS türevi + ideal Cp",
+        'mixing': "Boyutlandırma Gaz Karışım Sıcaklığı (T_mix)",
+        'mixing_m': "Tank ve flaş buharının mol-akışı ağırlıklı karışımı; Z, k, M bu durumda (P1) hesaplanır",
+        'rho_v_disp': "Yerdeğiştirme Buhar Yoğunluğu (ρ_v, P1)", 'rho_feed': "Besleme Sıvı Yoğunluğu (ρ_feed, T_cargo)",
+        'm_feed': "Besleme Sıvı Mol Kütlesi (M_feed)",
+        'standards': "Standart Baskıları ve Kapsam", 'composition_title': "Kullanılan LNG/Kargo Kompozisyonu (Normalize, mol %)",
+        'tank_comp': "Tank LNG", 'cargo_comp': "Kargo LNG", 'raw_note': "Not: hesaplar %100'e normalize edilmiş kompozisyonla yürütülür.",
+        'kd_col': "Kd", 'utilization': "Kullanım (%)",
+        'scope': "Kapsam", 'valve_type_pool': "Vana tipi aday havuzu", 'valve_type_col': "Tip",
         'w_flash': "Flaş BOG Debisi (W_flash)", 'w_flash_m': "İzentalpik PH-Flaş / Manuel",
         'w_disp': "Yer Değiştirme Debisi (W_disp)", 'w_disp_m': "Q_fill × ρ_v",
         'w_bog': "Isı Girişi Tank BOG (W_bog)", 'w_bog_m': "BOR %/gün veya manuel",
@@ -64,7 +79,7 @@ TEXTS = {
         'max_fill': "Seçilen vana düzeni korunursa maksimum dolum debisi",
         'oversized_note': "Uyarı: Bu vana %200 üzeri kapasiteye sahiptir (aşırı boyutlandırma / chattering riski). Çalışan vana adedinin artırılması veya ara çap model değerlendirilmelidir.",
         'no_valve': "Kapasite ≥ %100 şartını sağlayan vana bulunamadı; vana adedi veya sistem koşulları revize edilmelidir.",
-        'footer': "NFPA 59A, API 520 Part I/II, API 625, API 620 App. Q ve ASME Sec. VIII Div. 1 referans alınarak hesaplanmıştır.",
+        'footer': "NFPA 59A (2023), API 520 Part I (10. baskı) ve API 521 (7. baskı) denklemleri referans alınmıştır. API 520 Part II tesisat analizi, API 625 / API 620 App. Q tank tasarımı ve tank vakum koruması bu aracın kapsamı dışındadır.",
         'disclaimer': "Bu rapor, girilen veriler ve seçilen modeller esas alınarak otomatik üretilmiştir. Nihai tasarım, yetkili mühendis onayı gerektirir.",
         'air_std': "Hava standart şartları: 15 °C, 1.01325 bar_a",
         'fire_sec': "Yangın Senaryosu (Fire Case)",
@@ -105,6 +120,14 @@ TEXTS = {
         'rho_v': "Saturated Vapor Density (ρ_v)", 'rho_v_m': "Real Gas (EOS)",
         'z_factor': "Compressibility Factor (Z)", 'z_factor_m': "EOS VLE Flash",
         'k_factor': "Dynamic Isentropic Exponent (k = Cp/Cv)", 'k_factor_m': "EOS derivative + ideal Cp",
+        'mixing': "Sizing Gas Mixture Temperature (T_mix)",
+        'mixing_m': "Molar-flow blend of tank and flash vapor; Z, k, M evaluated at this state (P1)",
+        'rho_v_disp': "Displaced Vapor Density (ρ_v, P1)", 'rho_feed': "Feed Liquid Density (ρ_feed, T_cargo)",
+        'm_feed': "Feed Liquid Molar Mass (M_feed)",
+        'standards': "Standard Editions and Scope", 'composition_title': "LNG/Cargo Composition Used (normalized, mol %)",
+        'tank_comp': "Tank LNG", 'cargo_comp': "Cargo LNG", 'raw_note': "Note: calculations use the composition normalized to 100%.",
+        'kd_col': "Kd", 'utilization': "Utilization (%)",
+        'scope': "Scope", 'valve_type_pool': "Valve type candidate pool", 'valve_type_col': "Type",
         'w_flash': "Flash BOG Rate (W_flash)", 'w_flash_m': "Isenthalpic PH-Flash / Manual",
         'w_disp': "Displacement Rate (W_disp)", 'w_disp_m': "Q_fill × ρ_v",
         'w_bog': "Heat Ingress Tank BOG (W_bog)", 'w_bog_m': "BOR %/day or manual",
@@ -128,7 +151,7 @@ TEXTS = {
         'max_fill': "If the selected valve arrangement is kept, maximum filling rate",
         'oversized_note': "Warning: This valve exceeds 200% capacity (oversizing / chattering risk). Consider increasing the number of working valves or evaluating an intermediate size.",
         'no_valve': "No valve with capacity ≥ 100% was found; valve count or system conditions must be revised.",
-        'footer': "Calculated with reference to NFPA 59A, API 520 Part I/II, API 625, API 620 App. Q and ASME Sec. VIII Div. 1.",
+        'footer': "Based on NFPA 59A (2023), API 520 Part I (10th Ed.) and API 521 (7th Ed.). API 520 Part II installation analysis, API 625 / API 620 App. Q tank design and tank vacuum protection are outside the scope of this tool.",
         'disclaimer': "This report was generated automatically from the entered data and selected models. Final design requires approval by a qualified engineer.",
         'air_std': "Air standard conditions: 15 °C, 1.01325 bar_a",
         'fire_sec': "Fire Case",
@@ -214,20 +237,42 @@ def generate_html_report(
     T = TEXTS[lang]
     now_str = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
 
-    project_name = inputs.get('project_name') or DEFAULT_PROJECT_NAME[lang]
-    revision = inputs.get('project_revision') or "-"
-    prepared_by = inputs.get('project_prepared_by') or "-"
-    checked_by = inputs.get('project_checked_by') or "-"
+    project_name = _esc(inputs.get('project_name') or DEFAULT_PROJECT_NAME[lang])
+    revision = _esc(inputs.get('project_revision') or "-")
+    prepared_by = _esc(inputs.get('project_prepared_by') or "-")
+    checked_by = _esc(inputs.get('project_checked_by') or "-")
+    eos_choice_esc = _esc(inputs.get('eos_choice', '-'))
 
     n_work = int(inputs.get('N_working', 3))
     n_spare = int(inputs.get('N_spare', 1))
     api_details = sizing_results.get('api_details', {}) or {}
     fire_details = sizing_results.get('fire_details', {}) or {}
     fire_subcrit = sizing_results.get('fire_subcrit', {}) or {}
-    governing_scenario = sizing_results.get('governing_scenario', '-')
+    governing_scenario = _esc(sizing_results.get('governing_scenario', '-'))
     ph_flash = sizing_results.get('isenthalpic_res') or {}
 
     rec = _select_recommendation(matrix_results)
+
+    _api_is_sub = bool(api_details.get('is_subcritical', True))
+    _ao_formula_txt = ("A = (17.9 × W) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T × Z / M)"
+                       if _api_is_sub else
+                       "A = W / (C_crit × Kd × Kb × Kc × P1) × √(T × Z / M)")
+    _api_flow_txt = (f"F2 = {api_details.get('F2', 0):.4f}" if _api_is_sub
+                     else f"C_crit = {api_details.get('C_crit', 0):.5f}, F2 = 1.0")
+    _regime_txt = ("subcritical" if _api_is_sub else "critical")
+
+    _tank_comp = inputs.get('normalized_composition') or {}
+    _cargo_comp = inputs.get('cargo_normalized_composition')
+    _comp_rows = []
+    for _c, _v in sorted(_tank_comp.items(), key=lambda kv: -kv[1]):
+        _comp_rows.append(f"<tr><td>{_esc(_c)}</td><td>{_v:.3f}</td><td>{T['tank_comp']}</td></tr>")
+    if _cargo_comp:
+        for _c, _v in sorted(_cargo_comp.items(), key=lambda kv: -kv[1]):
+            _comp_rows.append(f"<tr><td>{_esc(_c)}</td><td>{_v:.3f}</td><td>{T['cargo_comp']}</td></tr>")
+    _composition_rows = "\n".join(_comp_rows)
+    _standards = inputs.get('standard_editions') or {}
+    _standards_rows = "\n".join(f"<tr><td>{_esc(k)}</td><td>{_esc(v)}</td></tr>" for k, v in _standards.items())
+    _scope_txt = _esc(inputs.get('scope_statement', ''))
 
     html = f"""<!DOCTYPE html>
 <html lang="{lang}">
@@ -242,7 +287,7 @@ def generate_html_report(
     <h1>{project_name}</h1>
     <p>{T['report_title']}</p>
     <div class="meta">
-        {T['date']}: {now_str} | {T['revision']}: {revision} | {T['prepared_by']}: {prepared_by} | {T['checked_by']}: {checked_by} | EOS: {inputs.get('eos_choice', '-')}
+        {T['date']}: {now_str} | {T['revision']}: {revision} | {T['prepared_by']}: {prepared_by} | {T['checked_by']}: {checked_by} | EOS: {eos_choice_esc}
     </div>
 </div>
 
@@ -282,11 +327,36 @@ def generate_html_report(
         <tr><td><strong>{T['qa']}</strong></td><td><strong>{sizing_results.get('q_a_total_m3_h', 0):,.1f}</strong></td><td><strong>m³/h air</strong></td><td>{T['qa_m']} ({T['air_std']})</td></tr>
         <tr><td>{T['qa_valve']} ({n_work})</td><td>{sizing_results.get('q_a_per_valve_m3_h', 0):,.1f}</td><td>m³/h air</td><td>Q_a / {n_work}</td></tr>
         <tr><td><strong>{T['ao']}</strong></td><td><strong>{sizing_results.get('A_o_mm2', 0):,.1f} mm² ({sizing_results.get('A_o_in2', 0):.1f} in²)</strong></td><td><strong>mm²/valve</strong></td><td>{T['ao_m']}</td></tr>
+        <tr><td>{T['mixing']}</td><td>{thermo_results.get('t_mix_K', 0):.2f}</td><td>K</td><td>{T['mixing_m']}</td></tr>
+        <tr><td>{T['rho_v_disp']}</td><td>{thermo_results.get('rho_v_disp', 0):.4f}</td><td>kg/m³</td><td>P1 bazlı W_disp girdisi</td></tr>
+        <tr><td>{T['rho_feed']}</td><td>{thermo_results.get('rho_feed', 0):.2f}</td><td>kg/m³</td><td>T_cargo besleme yoğunluğu</td></tr>
+        <tr><td>{T['m_feed']}</td><td>{thermo_results.get('M_feed', 0):.2f}</td><td>g/mol</td><td>Molar→kütle flaş dönüşümü</td></tr>
         <tr><td>{T['fire_p1']}</td><td>{inputs.get('P1_fire_kPa_a', sizing_results.get('P1_kPa_a', 0)):.2f}</td><td>kPa_a</td><td>%{inputs.get('fire_overpressure_pct', 21.0):.0f} OP</td></tr>
-        <tr><td>{T['fire_q']}</td><td>{fire_details.get('q_fire_kW', 0):,.1f}</td><td>kW</td><td>{fire_details.get('q_constant_kW_per_m2', 70.9):.1f} kW/m² × F={inputs.get('insulation_factor_F', 0.15):.2f}</td></tr>
+        <tr><td>{T['fire_q']}</td><td>{fire_details.get('q_fire_kW', 0):,.1f}</td><td>kW</td><td>C={fire_details.get('fire_coefficient_c_si', 70.9):.1f} (kW/m^1.64, API 521 SI) × F={inputs.get('insulation_factor_F', 0.15):.2f}</td></tr>
         <tr><td>{T['fire_w']}</td><td>{fire_details.get('w_fire_kg_h', 0):,.1f}</td><td>kg/h</td><td>{sizing_results.get('fire_q_a_total', 0):,.1f} m³/h air</td></tr>
-        <tr><td><strong>{T['fire_ao']}</strong></td><td><strong>{fire_subcrit.get('A_o_mm2', 0):,.1f}</strong></td><td><strong>mm²/valve</strong></td><td>Kd={inputs.get('fire_K_d', 1.0):.2f} | F2={fire_subcrit.get('F2', 0):.4f}</td></tr>
-        <tr><td><strong>{T['governing']}</strong></td><td colspan="3"><strong>{governing_scenario}</strong> (A_o = {sizing_results.get('governing_A_o_mm2', 0):,.1f} mm²)</td></tr>
+        <tr><td><strong>{T['fire_ao']}</strong></td><td><strong>{fire_subcrit.get('A_o_mm2', 0):,.1f}</strong></td><td><strong>mm²/valve</strong></td><td>Referans Kd={inputs.get('fire_K_d_reference', 0.85):.2f} | {'F2' if fire_subcrit.get('is_subcritical', True) else 'C_crit'}={'{:.4f}'.format(fire_subcrit.get('F2', 0) if fire_subcrit.get('is_subcritical', True) else fire_subcrit.get('C_crit', 0))} | Vana kapasitesi katalog Kd</td></tr>
+        <tr><td><strong>{T['governing']}</strong></td><td colspan="3"><strong>{governing_scenario}</strong> (A_o = {sizing_results.get('governing_A_o_mm2', 0):,.1f} mm², aynı referans Kd)</td></tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>{T['standards']}</h2>
+    <p><strong>{T['scope']}:</strong> {_scope_txt}</p>
+    <p><strong>{T['valve_type_pool']}:</strong> {_esc(inputs.get('valve_type_filter_label', '-'))}</p>
+    <table>
+        <tr><th>Standart</th><th>Baskı / Not</th></tr>
+        {_standards_rows}
+    </table>
+</div>
+
+<div class="card">
+    <h2>{T['composition_title']}</h2>
+    <p>{T['raw_note']}</p>
+    <table>
+        <thead><tr><th>Bileşen</th><th>mol %</th><th>Kaynak</th></tr></thead>
+        <tbody>
+        {_composition_rows}
+        </tbody>
     </table>
 </div>
 
@@ -298,17 +368,17 @@ def generate_html_report(
             <tr>
                 <td><strong>{T['qa']}</strong></td>
                 <td><code>Q_a = air capacity of A_o,gas at (P1, P2)</code></td>
-                <td>W = {sizing_results.get('w_total_kg_s', 0):.3f} kg/s | T = {inputs.get('T_relief_K', 0):.2f} K | Z = {thermo_results.get('Z_sizing', thermo_results.get('Z_factor', 0)):.4f} | M = {thermo_results.get('M_sizing', thermo_results.get('M_vapor', 0)):.2f} g/mol</td>
+                <td>W = {sizing_results.get('w_total_kg_s', 0):.3f} kg/s | T_mix = {thermo_results.get('t_mix_K', inputs.get('T_relief_K', 0)):.2f} K | Z = {thermo_results.get('Z_sizing', thermo_results.get('Z_factor', 0)):.4f} | M = {thermo_results.get('M_sizing', thermo_results.get('M_vapor', 0)):.2f} g/mol</td>
             </tr>
             <tr>
-                <td><strong>{T['ao']}</strong></td>
-                <td><code>A = (17.9 × W) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T × Z / M)</code></td>
-                <td>W = {sizing_results.get('w_valve_kg_h', 0):,.1f} kg/h | P1 = {api_details.get('P1_kPa_a', 0):.2f} kPa_a | P2 = {api_details.get('P2_kPa_a', 0):.2f} kPa_a | ΔP = {api_details.get('delta_p_kPa', 0):.2f} kPa | r = {api_details.get('pressure_ratio', 0):.4f} | F2 = {api_details.get('F2', 0):.4f} | Kd = {inputs.get('K_d', 0.85):.2f}</td>
+                <td><strong>{T['ao']}</strong> — {_regime_txt}</td>
+                <td><code>{_ao_formula_txt}</code></td>
+                <td>W = {sizing_results.get('w_valve_kg_h', 0):,.1f} kg/h | P1 = {api_details.get('P1_kPa_a', 0):.2f} kPa_a | P2 = {api_details.get('P2_kPa_a', 0):.2f} kPa_a | ΔP = {api_details.get('delta_p_kPa', 0):.2f} kPa | r = {api_details.get('pressure_ratio', 0):.4f} | {_api_flow_txt} | Kd = {inputs.get('K_d', 0.85):.2f} (referans) | Kb = Kc = 1.0 (varsayım)</td>
             </tr>
             <tr>
                 <td><strong>{T['fire_sec']}</strong></td>
-                <td><code>Q_fire = C_q × F × A_wetted^0.82 (kW)<br>W_fire = Q_fire × 3600 / L (kg/h)</code></td>
-                <td>A_wetted = {inputs.get('wetted_area_m2', 0):,.0f} m² | F = {inputs.get('insulation_factor_F', 0):.2f} | L = {inputs.get('latent_heat_kJ_kg', 0):,.0f} kJ/kg | T_fire = {inputs.get('T_fire_K', 0):.1f} K | Kd = {inputs.get('fire_K_d', 1.0):.2f}</td>
+                <td><code>Q_fire = C × F × A_wetted^0.82 (kW)<br>W_fire = Q_fire × 3600 / L (kg/h)</code></td>
+                <td>A_wetted = {inputs.get('wetted_area_m2', 0):,.0f} m² | F = {inputs.get('insulation_factor_F', 0):.2f} | L = {inputs.get('latent_heat_kJ_kg', 0):,.0f} kJ/kg | T_fire = {inputs.get('T_fire_K', 0):.1f} K | C = {fire_details.get('fire_coefficient_c_si', 70.9):.1f} kW/m^1.64 (SI katsayı, ısı akısı değil) | Referans Kd = {inputs.get('fire_K_d_reference', 0.85):.2f} | Vana kapasitesi katalog Kd</td>
             </tr>
         </tbody>
     </table>
@@ -324,6 +394,10 @@ def generate_html_report(
         <tr><td>{T['ph_tflash']}</td><td>{ph_flash.get('T_flash_K', 0):.2f}</td><td>K</td></tr>
         <tr><td>{T['ph_vf']}</td><td>%{ph_flash.get('flash_pct', 0):.3f}</td><td>mol/mol</td></tr>
         <tr><td>{T['ph_hfeed']}</td><td>{ph_flash.get('h_feed_J_mol', 0):.1f}</td><td>J/mol</td></tr>
+        <tr><td>İstenen EOS</td><td>{_esc(ph_flash.get('eos_used', '-'))}</td><td>-</td></tr>
+        <tr><td>Entalpi Modeli (gerçek)</td><td>{_esc(ph_flash.get('enthalpy_model', '-'))}</td><td>-</td></tr>
+        <tr><td>Faz Ayrımı Modeli</td><td>{_esc(ph_flash.get('phase_split_model', 'eos_fugacity'))}</td><td>-</td></tr>
+        <tr><td>Arama Sınırına Dayandı</td><td>{T['yes'] if ph_flash.get('search_bound_hit') else T['no']}</td><td>-</td></tr>
         <tr><td>{T['converged']}</td><td>{T['yes'] if ph_flash.get('converged') else T['no']}</td><td>-</td></tr>
     </table>
 </div>
@@ -334,7 +408,7 @@ def generate_html_report(
     <h2>{T['sec3']} — {governing_scenario}</h2>
     <table>
         <thead>
-            <tr><th>{T['valve_size']}</th><th>{T['ao_area']}</th><th>{T['air_cap']}</th><th>{T['coverage']}</th><th>{T['assessment']}</th></tr>
+            <tr><th>{T['valve_size']}</th><th>{T['valve_type_col']}</th><th>{T['ao_area']}</th><th>{T['kd_col']}</th><th>{T['air_cap']}</th><th>{T['coverage']}</th><th>{T['utilization']}</th><th>{T['assessment']}</th></tr>
         </thead>
         <tbody>
 """
@@ -347,11 +421,14 @@ def generate_html_report(
         badge_class = _badge_class_matrix(m.get('status_code', ''))
         html += f"""
             <tr>
-                <td><strong>{m['size_name']}</strong></td>
+                <td><strong>{_esc(m['size_name'])}</strong></td>
+                <td>{'Pilot' if m.get('valve_category') == 'pilot' else ('Yaylı' if m.get('valve_category') == 'spring' else '-')}</td>
                 <td>{m['orifice_area_mm2']:,.0f} mm²</td>
+                <td>{m.get('discharge_coeff_kd', 0.85):.3f}</td>
                 <td>{m['air_capacity_m3_h']:,.0f} m³/h</td>
                 <td>%{m['coverage_pct']:.1f}</td>
-                <td><span class="{badge_class}">{m['status']}</span></td>
+                <td>%{m.get('utilization_pct', (100.0 / m['coverage_pct'] * 100.0) if m['coverage_pct'] > 0 else 0.0):.1f}</td>
+                <td><span class="{badge_class}">{_esc(m['status'])}</span></td>
             </tr>
         """
 
@@ -364,7 +441,7 @@ def generate_html_report(
     <h2>{T['sec4']}</h2>
     <table>
         <thead>
-            <tr><th>{T['manufacturer']}</th><th>{T['series']}</th><th>{T['valve_type']}</th><th>{T['dn_size']}</th><th>{T['orifice']}</th><th>{T['coverage']}</th><th>{T['status']}</th></tr>
+            <tr><th>{T['manufacturer']}</th><th>{T['series']}</th><th>{T['valve_type']}</th><th>{T['dn_size']}</th><th>{T['orifice']}</th><th>{T['kd_col']}</th><th>{T['coverage']}</th><th>{T['utilization']}</th><th>{T['status']}</th></tr>
         </thead>
         <tbody>
 """
@@ -377,13 +454,15 @@ def generate_html_report(
         badge_class = _badge_class_valve(v.get('status', ''))
         html += f"""
             <tr>
-                <td><strong>{v['manufacturer']}</strong></td>
-                <td>{v['series']}</td>
-                <td>{v['type']}</td>
-                <td>{v['dn_size']}</td>
+                <td><strong>{_esc(v['manufacturer'])}</strong></td>
+                <td>{_esc(v['series'])}</td>
+                <td>{_esc(v['type'])}</td>
+                <td>{_esc(v['dn_size'])}</td>
                 <td>{v['orifice_area_mm2']:,.0f} mm²</td>
+                <td>{v.get('discharge_coeff_kd', 0.85):.3f}</td>
                 <td>%{v['coverage_pct']:.1f}</td>
-                <td><span class="{badge_class}">{v['status']}</span></td>
+                <td>%{v.get('utilization_pct', (100.0 / v['coverage_pct'] * 100.0) if v['coverage_pct'] > 0 else 0.0):.1f}</td>
+                <td><span class="{badge_class}">{_esc(v['status'])}</span></td>
             </tr>
         """
 
@@ -399,30 +478,37 @@ def generate_html_report(
 
     if rec['adequate']:
         best = rec['best']
-        max_fill = inputs.get('Q_fill', 0.0) * (best['coverage_pct'] / 100.0)
+        _best_cov = best['coverage_pct']
+        _best_util = (100.0 / _best_cov * 100.0) if _best_cov > 0 else 0.0
+        _max_fill = inputs.get('max_fill_m3_h')
+        _max_fill_txt = f"{_max_fill:,.0f}" if _max_fill is not None else "N/A"
         html += f"""
-    <p><strong>{T['rec_a']}:</strong> {T['smallest']} → <strong>{best['size_name']}</strong>
-       (A_o = {best['orifice_area_mm2']:,.0f} mm², {T['capacity_use']} %{best['coverage_pct']:.1f}) — {n_work}+{n_spare}.</p>
+    <p><strong>{T['rec_a']}:</strong> {T['smallest']} → <strong>{_esc(best['size_name'])}</strong>
+       (A_o = {best['orifice_area_mm2']:,.0f} mm², {T['capacity_use']} (kapsama) %{_best_cov:.1f},
+       gerçek kullanım %{_best_util:.1f}) — {n_work}+{n_spare}.</p>
+    <p>{T['disclaimer']}</p>
 """
-        if best['coverage_pct'] > 200.0:
+        if _best_cov > 200.0:
             html += f"""
     <p class="badge-warning">{T['oversized_note']}</p>
 """
         if rec['second']:
             second = rec['second']
+            _second_util = (100.0 / second['coverage_pct'] * 100.0) if second['coverage_pct'] > 0 else 0.0
             html += f"""
-    <p><strong>{T['rec_b']}:</strong> {T['alt_valve']} → <strong>{second['size_name']}</strong>
-       (A_o = {second['orifice_area_mm2']:,.0f} mm², {T['capacity_use']} %{second['coverage_pct']:.1f}). {T['safety_margin']}</p>
+    <p><strong>{T['rec_b']}:</strong> {T['alt_valve']} → <strong>{_esc(second['size_name'])}</strong>
+       (A_o = {second['orifice_area_mm2']:,.0f} mm², kapsama %{second['coverage_pct']:.1f}, kullanım %{_second_util:.1f}). {T['safety_margin']}</p>
 """
         html += f"""
-    <p><strong>{T['rec_c']}:</strong> {T['max_fill']} <strong>{max_fill:,.0f} m³/h</strong>.</p>
+    <p><strong>{T['rec_c']}:</strong> {T['max_fill']} <strong>{_max_fill_txt} m³/h</strong>
+       (<em>operasyonel kütle dengesinden çözülmüştür; hüküm süren yangın senaryosundan türetilmez</em>).</p>
 """
     else:
         best = rec['best']
         if best:
             html += f"""
     <p class="badge-danger">{T['no_valve']}</p>
-    <p>{T['rec_a']}: {best['size_name']} (%{best['coverage_pct']:.1f})</p>
+    <p>{T['rec_a']}: {_esc(best['size_name'])} (%{best['coverage_pct']:.1f})</p>
 """
         else:
             html += f"""

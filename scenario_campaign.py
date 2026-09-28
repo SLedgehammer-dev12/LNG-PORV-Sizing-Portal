@@ -5,12 +5,20 @@ Runs the REAL computation pipeline (app._compute_all_results) plus the HTML repo
 generator for 60 parameter scenarios, applies physical/consistency/monotonicity
 checks and writes a markdown results report.
 
+IMPORTANT: this campaign is a FIXED-CONDITION regression harness (T_relief = 118.15 K).
+It does not represent the v1.4.1+ UI default, which auto-sets T_tank = T_relief to the
+tank saturation temperature (e.g. 112.45 K for the default composition). Relative and
+absolute checks therefore refer to the harness basis only.
+
+Exits non-zero if any scenario fails (usable as a CI gate).
+
 Usage:  python3 scenario_campaign.py
 """
 
 import datetime
 import logging
 import math
+import sys
 import time
 
 logging.disable(logging.WARNING)
@@ -56,8 +64,8 @@ def _p(**overrides):
 # A. Baseline
 S(1, "A-Temel", "Varsayılan (otomatik kargo T, PH-flaş)", "Referans davranış",
   expect=dict(no_exc=True), **_p())
-S(2, "A-Temel", "Sabit %2 flaş (klasik NFPA senaryosu)", "W_flash = Q·ρ·%2",
-  expect=dict(vf_min=1.9, vf_max=2.1, wtotal_min=110000, wtotal_max=120000), **_p(flash_mode='FIXED', flash_pct=2.0))
+S(2, "A-Temel", "Sabit %2 flaş (klasik NFPA senaryosu)", "Molar %2 -> Mv/Mfeed kütle dönüşümü",
+  expect=dict(vf_min=1.9, vf_max=2.1, wtotal_min=98000, wtotal_max=112000), **_p(flash_mode='FIXED', flash_pct=2.0))
 S(3, "A-Temel", "Aşırı soğuk kargo (VF≈0)", "Subcooled: flaş yok",
   expect=dict(vf_max=0.05), **_p(t_cargo=110.5))
 S(4, "A-Temel", "Manuel flaş debisi 94.200 kg/h", "Manuel mod yükü",
@@ -118,7 +126,7 @@ S(27, "E-Basınç", "P_set = 200 mbar_g", "Düşük set → büyük A_o",
 S(28, "E-Basınç", "P_set = 300 mbar_g", "Yüksek set → küçük A_o",
   expect=dict(rel_ref=('ao_op', 'lt', 0.99)), **_p(p_set=300.0))
 S(29, "E-Basınç", "Overpressure %0", "P1 = P_set + Patm",
-  expect=dict(rel_ref=('ao_op', 'gt', 1.03)), **_p(op=0.0))
+  expect=dict(rel_ref=('ao_op', 'gt', 1.02)), **_p(op=0.0))
 
 # F. Flow / valve count
 S(30, "F-Debi/Vana", "Q_fill = 5.000 m³/h", "A_o yarıya yakın",
@@ -227,6 +235,7 @@ def run_pipeline(params):
         fire_K_d_val=params['fire_kd'],
         is_isenthalpic_mode_val=isenth, p_ship_mbar_g_val=params['p_ship'],
         cargo_comp_frozen=tuple(sorted(params['cargo_comp'].items())) if params['cargo_comp'] else None,
+        valve_type_filter_val='pilot',  # UI default: PORV pilot-operated candidate pool
     )
     return res, rho_lng
 
@@ -299,7 +308,8 @@ def general_checks(res, params, rho_lng, allow_empty_db=False):
     cap_op = calculate_valve_air_capacity_m3_h(sub['A_o_mm2'], res['P1_kPa_a'], res['P2_kPa_a'], 0.85)
     if abs(cap_op - res['q_a_per_valve']) > max(1.0, 1e-6 * cap_op):
         errs.append(f"Q_a ↔ A_o (operasyonel) tutarsız ({cap_op:.1f} vs {res['q_a_per_valve']:.1f})")
-    cap_fire = calculate_valve_air_capacity_m3_h(fire['A_o_mm2'], res['P1_fire_kPa_a'], res['P2_kPa_a'], params['fire_kd'])
+    # Both required areas use the common reference Kd = 0.85 (v2.0 policy)
+    cap_fire = calculate_valve_air_capacity_m3_h(fire['A_o_mm2'], res['P1_fire_kPa_a'], res['P2_kPa_a'], 0.85)
     if abs(cap_fire - res['fire_q_a_per_valve']) > max(1.0, 1e-6 * cap_fire):
         errs.append(f"Q_a ↔ A_o (yangın) tutarsız ({cap_fire:.1f} vs {res['fire_q_a_per_valve']:.1f})")
     gov_expected_fire = fire['A_o_mm2'] > sub['A_o_mm2']
@@ -312,13 +322,11 @@ def general_checks(res, params, rho_lng, allow_empty_db=False):
         if abs(cov_check - v['coverage_pct']) > 0.05:
             errs.append(f"coverage ↔ kapasite tutarsız ({v['coverage_pct']:.2f} vs {cov_check:.2f})")
             break
-    # for the fire scenario (Kd=1.0) coverage must equal the pure area ratio
-    if res['governing_is_fire']:
-        for v in res['governing_matrix'][:3]:
-            ratio = v['orifice_area_mm2'] / res['governing_A_o_mm2'] * 100.0
-            if abs(ratio - v['coverage_pct']) > 0.5:
-                errs.append(f"yangın coverage ↔ alan oranı sapması ({v['coverage_pct']:.2f} vs {ratio:.2f})")
-                break
+    # v2.0: fire matrix uses catalog Kd per valve; Q_a is Kd-invariant so coverage
+    # must still equal air_capacity / required_air_capacity (checked above).
+    # Displaced vapor density must be evaluated at P1.
+    if res.get('rho_v_disp', 0.0) < res.get('rho_v', 0.0) - 1e-9:
+        errs.append('W_disp yoğunluğu P1 bazlı değil (rho_v_disp < rho_v)')
     if not allow_empty_db and not res['governing_matrix']:
         errs.append('boş vana matrisi')
     if not allow_empty_db and not res['matched_valves']:
@@ -476,9 +484,15 @@ def run_ui_scenario():
         at.radio(key='in_flash_mode').set_value("Manuel Debi Girişi").run()
         if at.exception:
             errs.append(f"manuel flaş istisnası: {[str(e.value) for e in at.exception]}")
-        at.checkbox(key='in_fire_kd_one').set_value(False).run()
+        at.selectbox(key='in_fire_q_constant').set_value("43.2 (21.000 Btu/h·ft² - drenaj + söndürme mevcut)").run()
         if at.exception:
-            errs.append(f"Kd istisnası: {[str(e.value) for e in at.exception]}")
+            errs.append(f"yangın katsayısı istisnası: {[str(e.value) for e in at.exception]}")
+        at.radio(key='in_flash_mode').set_value("Sabit Flaş Oranı (%)").run()
+        if at.exception:
+            errs.append(f"sabit flaş istisnası: {[str(e.value) for e in at.exception]}")
+        at.radio(key='in_flash_basis').set_value("Kütlesel (kg/kg) - doğrudan kütle oranı").run()
+        if at.exception:
+            errs.append(f"flaş bazı istisnası: {[str(e.value) for e in at.exception]}")
         if len(at.dataframe) < 1:
             errs.append('UI tablosu render edilmedi')
     except Exception as err:  # noqa: BLE001
@@ -489,6 +503,9 @@ def run_ui_scenario():
 def fmt_report(results, elapsed):
     lines = []
     lines.append("# LNG PORV Portalı — 60 Senaryo Uçtan Uca Fonksiyon Test Kampanyası")
+    lines.append("")
+    lines.append("> **Sabit koşul regresyon koşumu:** T_relief = 118.15 K. Bu, arayüzün otomatik doygunluk "
+                 "varsayılanını (örn. varsayılan kompozisyon için 112.45 K) temsil etmez; sonuçlar bu koşum bazına aittir.")
     lines.append("")
     lines.append(f"Tarih: {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} | Süre: {elapsed:.1f} s | "
                  f"Senaryo: {len(results)} | PASS: {sum(1 for r in results if not r['errs'])} | "
@@ -544,3 +561,5 @@ if __name__ == '__main__':
         f.write(report)
     print(report)
     print("\nSonuç dosyası: scenario_campaign_results.md")
+    _failed = sum(1 for r in results if r['errs'])
+    sys.exit(1 if _failed else 0)

@@ -7,18 +7,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with: {python-version: '3.11', cache: 'pip'}
       - run: pip install -r requirements.txt pyinstaller pytest
       - run: python -m ruff check .
       - run: python -m pytest test_app.py test_unit_converter.py test_scenarios.py -v
+      - run: python scenario_campaign.py
       - run: |
           $S = python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))"
           pyinstaller --noconfirm --onefile --windowed --noupx --name LNG_PORV_Sizing `
@@ -32,19 +33,20 @@ jobs:
             if ($list -notmatch "'$m'") { Write-Error "Pakette eksik modul: $m"; exit 1 }
           }
           Write-Host "Paketleme dogrulamasi OK"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: {name: LNG_PORV_Sizing_Windows, path: dist/LNG_PORV_Sizing.exe, retention-days: 90}
 
   build-macos-intel:
     runs-on: macos-13
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with: {python-version: '3.11', cache: 'pip'}
       - run: pip install -r requirements.txt pyinstaller pytest
       - run: python -m ruff check .
       - run: python -m pytest test_app.py test_unit_converter.py test_scenarios.py -v
+      - run: python scenario_campaign.py
       - run: |
           S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
           pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \
@@ -61,18 +63,19 @@ jobs:
             echo "$LIST" | grep -q "$m" || { echo "Pakette eksik modul: $m"; exit 1; }
           done
           echo "Paketleme dogrulamasi OK"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: {name: LNG_PORV_Sizing_macOS_Intel, path: dist/LNG_PORV_Sizing.app.zip, retention-days: 90}
 
   build-macos-arm:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with: {python-version: '3.11', cache: 'pip'}
       - run: pip install -r requirements.txt pyinstaller pytest
       - run: python -m ruff check .
       - run: python -m pytest test_app.py test_unit_converter.py test_scenarios.py -v
+      - run: python scenario_campaign.py
       - run: |
           S=$(python -c "import streamlit, os; print(os.path.join(os.path.dirname(streamlit.__file__), 'static'))")
           pyinstaller --noconfirm --onefile --windowed --name LNG_PORV_Sizing \
@@ -87,16 +90,18 @@ jobs:
             echo "$LIST" | grep -q "$m" || { echo "Pakette eksik modul: $m"; exit 1; }
           done
           echo "Paketleme dogrulamasi OK"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: {name: LNG_PORV_Sizing_macOS_ARM, path: dist/LNG_PORV_Sizing.app.zip, retention-days: 90}
 
   create-release:
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     needs: [build-windows, build-macos-arm]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with: {path: artifacts}
       - run: |
           mkdir release
@@ -106,7 +111,7 @@ jobs:
           if [ -f artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app.zip ]; then
             cp artifacts/LNG_PORV_Sizing_macOS_Intel/LNG_PORV_Sizing.app.zip release/LNG_PORV_Sizing_Intel.app.zip
           fi
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: release/*
           body_path: RELEASE_NOTES.md

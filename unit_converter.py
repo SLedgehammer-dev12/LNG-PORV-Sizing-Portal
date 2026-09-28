@@ -61,27 +61,32 @@ AREA_UNITS = {
     'm²': 1000000.0
 }
 
+def _lookup_factor(table: dict, unit: str, kind: str) -> float:
+    """Returns the conversion factor or raises for an unknown unit (no silent 1.0)."""
+    if unit not in table:
+        raise ValueError(f"Bilinmeyen {kind} birimi: '{unit}'. Geçerli birimler: {list(table.keys())}")
+    return table[unit]
+
+
 def convert_pressure_to_mbar(val: float, unit: str, is_gauge: bool = False) -> float:
     """Converts pressure input from selected unit to mbar (abs or gauge)."""
-    if is_gauge:
-        factor = PRESSURE_UNITS_GAUGE.get(unit, 1.0)
-    else:
-        factor = PRESSURE_UNITS_ABS.get(unit, 1.0)
+    table = PRESSURE_UNITS_GAUGE if is_gauge else PRESSURE_UNITS_ABS
+    factor = _lookup_factor(table, unit, "basınç")
     return float(val * factor)
 
 def convert_volumetric_flow_to_m3_h(val: float, unit: str) -> float:
     """Converts volumetric flow from selected unit to m3/h."""
-    factor = VOLUMETRIC_FLOW_UNITS.get(unit, 1.0)
+    factor = _lookup_factor(VOLUMETRIC_FLOW_UNITS, unit, "hacimsel debi")
     return float(val * factor)
 
 def convert_mass_flow_to_kg_h(val: float, unit: str) -> float:
     """Converts mass flow from selected unit to kg/h."""
-    factor = MASS_FLOW_UNITS.get(unit, 1.0)
+    factor = _lookup_factor(MASS_FLOW_UNITS, unit, "kütlesel debi")
     return float(val * factor)
 
 def convert_volume_to_m3(val: float, unit: str) -> float:
     """Converts volume from selected unit to m3."""
-    factor = VOLUME_UNITS.get(unit, 1.0)
+    factor = _lookup_factor(VOLUME_UNITS, unit, "hacim")
     return float(val * factor)
 
 def convert_temperature_to_kelvin(val: float, unit: str) -> float:
@@ -95,16 +100,16 @@ def convert_temperature_to_kelvin(val: float, unit: str) -> float:
         return float((val - 32.0) * (5.0 / 9.0) + 273.15)
     elif unit in ['°R', 'R', 'Rankine']:
         return float(val * (5.0 / 9.0))
-    return float(val + 273.15)
+    raise ValueError(f"Bilinmeyen sıcaklık birimi: '{unit}'. Geçerli birimler: °C, K, °F, °R")
 
 def convert_density_to_kg_m3(val: float, unit: str) -> float:
     """Converts density from selected unit to kg/m3."""
-    factor = DENSITY_UNITS.get(unit, 1.0)
+    factor = _lookup_factor(DENSITY_UNITS, unit, "yoğunluk")
     return float(val * factor)
 
 def convert_area_from_mm2(val_mm2: float, target_unit: str) -> float:
     """Converts area from mm2 to target unit (mm2, cm2, in2, m2)."""
-    factor = AREA_UNITS.get(target_unit, 1.0)
+    factor = _lookup_factor(AREA_UNITS, target_unit, "alan")
     return float(val_mm2 / factor)
 
 if __name__ == '__main__':

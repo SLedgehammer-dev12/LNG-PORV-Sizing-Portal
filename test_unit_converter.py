@@ -75,5 +75,23 @@ def test_area_conversion():
     assert convert_area_from_mm2(500.0, 'mm²') == 500.0
 
 
+def test_unknown_units_raise_instead_of_silent_identity():
+    """An unknown unit must never be silently treated as the base unit (factor 1.0)."""
+    with pytest.raises(ValueError):
+        convert_pressure_to_mbar(1.0, 'furlongs')
+    with pytest.raises(ValueError):
+        convert_volumetric_flow_to_m3_h(1.0, 'buckets')
+    with pytest.raises(ValueError):
+        convert_mass_flow_to_kg_h(1.0, 'stones')
+    with pytest.raises(ValueError):
+        convert_volume_to_m3(1.0, 'hogsheads')
+    with pytest.raises(ValueError):
+        convert_temperature_to_kelvin(1.0, 'Rømer')
+    with pytest.raises(ValueError):
+        convert_density_to_kg_m3(1.0, '°API')
+    with pytest.raises(ValueError):
+        convert_area_from_mm2(1.0, 'acres')
+
+
 if __name__ == '__main__':
     pytest.main(['-v', 'test_unit_converter.py'])

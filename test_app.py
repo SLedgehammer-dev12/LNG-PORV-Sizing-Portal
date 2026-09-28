@@ -28,10 +28,10 @@ P2_DEFAULT = 90.603    # kPa_a (P_atm_min)
 
 
 def _default_scenario():
-    """Default 2% flash scenario used across sizing tests."""
+    """Default 2% (mass-basis) flash scenario used across sizing tests."""
     from vle_thermo import calculate_two_phase_vle_flash
     vle = calculate_two_phase_vle_flash(DEFAULT_COMP, temperature_k=118.15, pressure_kPa_a=114.6, eos='PR')
-    loads = calculate_relieving_loads(10000.0, 471.0, vle['rho_v_kg_m3'], 2.0, 1570.0)
+    loads = calculate_relieving_loads(10000.0, 471.0, vle['rho_v_kg_m3'], 2.0, 1570.0, flash_basis='mass')
     return loads, vle['Z_gas'], vle['k_mix'], vle['M_vapor_g_mol']
 
 
@@ -48,7 +48,8 @@ def test_relieving_loads():
         rho_lng_kg_m3=471.0,
         rho_v_kg_m3=1.95,
         flash_pct=2.0,
-        w_bog_kg_h=1570.0
+        w_bog_kg_h=1570.0,
+        flash_basis='mass'
     )
 
     assert loads['w_disp_kg_h'] == 19500.0
@@ -56,6 +57,22 @@ def test_relieving_loads():
     assert loads['w_bog_kg_h'] == 1570.0
     assert loads['w_total_kg_h'] == 115270.0
     assert abs(loads['w_total_kg_s'] - 32.01944) < 0.1
+
+
+def test_relieving_loads_molar_to_mass_conversion():
+    """Molar V/F must be converted to a mass flow with M_vapor / M_feed."""
+    loads = calculate_relieving_loads(
+        q_fill_m3_h=10000.0, rho_lng_kg_m3=471.0, rho_v_kg_m3=1.95,
+        flash_pct=2.0, w_bog_kg_h=0.0, flash_basis='molar',
+        m_vapor_g_mol=16.0, m_feed_g_mol=20.0
+    )
+    assert loads['w_flash_kg_h'] == pytest.approx(10000.0 * 471.0 * 0.02 * (16.0 / 20.0), rel=1e-9)
+    assert loads['flash_basis'] == 'molar'
+
+
+def test_relieving_loads_molar_requires_molar_masses():
+    with pytest.raises(ValueError):
+        calculate_relieving_loads(flash_pct=2.0, flash_basis='molar')
 
 
 def test_nfpa59a_air_equivalent():
@@ -148,18 +165,26 @@ def test_matrix_marks_16x18_oversized():
     assert all(m['coverage_pct'] > 200.0 for m in oversized)
 
 
-def test_matrix_kd_override_applied():
-    """Fire scenario passes K_d=1.0; it must actually change the computed capacities."""
+def test_matrix_uses_catalog_kd_by_default():
+    """Default matrix capacity must use each valve's own catalog Kd (no hidden override)."""
     loads, Z, k, M = _default_scenario()
     q_a_per_valve = calculate_nfpa59a_air_equivalent(
         loads['w_total_kg_s'], temperature_k=118.15, Z=Z, M_g_mol=M,
         k=k, K_d=0.85, P1_kPa_a=P1_DEFAULT, P2_kPa_a=P2_DEFAULT
     ) / 3.0
-    m_kd = evaluate_valve_matrix(q_a_per_valve_m3_h=q_a_per_valve, P1_kPa_a=P1_DEFAULT, P2_kPa_a=P2_DEFAULT, K_d=1.0)
     m_catalog = evaluate_valve_matrix(q_a_per_valve_m3_h=q_a_per_valve, P1_kPa_a=P1_DEFAULT, P2_kPa_a=P2_DEFAULT, K_d=None)
+    assert m_catalog
+    for m in m_catalog:
+        expected = calculate_valve_air_capacity_m3_h(
+            m['orifice_area_mm2'], P1_DEFAULT, P2_DEFAULT, K_d=m['discharge_coeff_kd']
+        )
+        assert m['air_capacity_m3_h'] == pytest.approx(expected, rel=1e-9), \
+            f"Matrix must use catalog Kd for {m['size_name']}"
+    # Sensitivity override still works when explicitly requested
+    m_kd = evaluate_valve_matrix(q_a_per_valve_m3_h=q_a_per_valve, P1_kPa_a=P1_DEFAULT, P2_kPa_a=P2_DEFAULT, K_d=1.0)
     cap_kd = next(m['air_capacity_m3_h'] for m in m_kd if '10" x 12"' in m['size_name'])
     cap_cat = next(m['air_capacity_m3_h'] for m in m_catalog if '10" x 12"' in m['size_name'])
-    assert cap_kd > cap_cat, "K_d=1.0 must yield higher capacity than catalog Kd"
+    assert cap_kd > cap_cat
 
 
 def test_run_app_path_resolution(tmp_path, monkeypatch):
@@ -228,6 +253,19 @@ def test_psv_database_schema_validation():
     assert len(valid) == 1
     assert valid[0]['id'] == 'OK'
     assert len(errors) == 4
+
+
+def test_psv_database_rejects_non_finite_areas():
+    """NaN/Inf orifice areas must be rejected (NaN <= 0 is False in Python)."""
+    raw = [
+        {"id": "NAN", "manufacturer": "M", "series": "S", "type": "T", "dn_size": "2x3",
+         "orifice_area_mm2": float('nan'), "discharge_coeff_kd": 0.85, "cryogenic_certified": True},
+        {"id": "INF", "manufacturer": "M", "series": "S", "type": "T", "dn_size": "2x3",
+         "orifice_area_mm2": float('inf'), "discharge_coeff_kd": 0.85, "cryogenic_certified": True},
+    ]
+    valid, errors = validate_psv_database(raw)
+    assert valid == []
+    assert len(errors) == 2
 
 
 def test_psv_database_missing_file_returns_empty(tmp_path, monkeypatch):
@@ -314,6 +352,87 @@ def test_fire_constant_selection():
     assert res_210['q_fire_kW'] < res_345['q_fire_kW']
 
 
+def test_fire_scenario_load_coefficient_name_and_validation():
+    res = calculate_fire_scenario_load(
+        wetted_area_m2=1200.0, insulation_factor_F=0.15, latent_heat_kJ_kg=510.0,
+        fire_coefficient_c_si=70.9
+    )
+    assert res['fire_coefficient_c_si'] == pytest.approx(70.9)
+    assert res['q_constant_kW_per_m2'] == pytest.approx(70.9)  # deprecated alias
+    with pytest.raises(ValueError):
+        calculate_fire_scenario_load(insulation_factor_F=1.5)
+    with pytest.raises(ValueError):
+        calculate_fire_scenario_load(wetted_area_m2=0.0)
+    with pytest.raises(ValueError):
+        calculate_fire_scenario_load(latent_heat_kJ_kg=0.0)
+
+
+def test_invalid_pressure_states_raise():
+    """P2 >= P1 and r >= 1 must raise instead of being silently clamped."""
+    with pytest.raises(ValueError):
+        calculate_api520_subcritical_orifice_area(w_valve_kg_h=1000.0, P1_kPa_a=100.0, P2_kPa_a=110.0)
+    with pytest.raises(ValueError):
+        calculate_valve_air_capacity_m3_h(1000.0, 100.0, 100.0)
+    with pytest.raises(ValueError):
+        calculate_valve_air_capacity_m3_h(1000.0, 100.0, 120.0)
+
+
+def test_valve_type_filter_pilot_and_spring():
+    """Valve type filter must restrict the candidate pool consistently in both engines."""
+    from psv_database import categorize_valve_type, load_psv_database
+
+    assert categorize_valve_type("Pilot Operated Safety Valve") == 'pilot'
+    assert categorize_valve_type("Full Nozzle Spring Loaded Cryogenic SRV") == 'spring'
+    assert categorize_valve_type("Pilot / Spring Loaded Cryogenic SRV") == 'pilot'
+    assert categorize_valve_type("") == 'spring'
+
+    pilots = evaluate_valve_matrix(q_a_per_valve_m3_h=26419.5, P1_kPa_a=P1_DEFAULT,
+                                   P2_kPa_a=P2_DEFAULT, valve_type='pilot')
+    springs = evaluate_valve_matrix(q_a_per_valve_m3_h=26419.5, P1_kPa_a=P1_DEFAULT,
+                                    P2_kPa_a=P2_DEFAULT, valve_type='spring')
+    all_valves = evaluate_valve_matrix(q_a_per_valve_m3_h=26419.5, P1_kPa_a=P1_DEFAULT,
+                                       P2_kPa_a=P2_DEFAULT, valve_type='all')
+    assert pilots and springs
+    assert all(m['valve_category'] == 'pilot' for m in pilots)
+    assert all(m['valve_category'] == 'spring' for m in springs)
+    assert len(pilots) + len(springs) == len(all_valves) == len(load_psv_database())
+
+    matched_pilots = search_matching_valves(
+        required_air_capacity_m3_h=26419.5, P1_kPa_a=P1_DEFAULT, P2_kPa_a=P2_DEFAULT,
+        show_all_above_90=True, valve_type='pilot'
+    )
+    assert matched_pilots
+    assert all(v.get('valve_category') == 'pilot' for v in matched_pilots)
+
+
+def test_search_fallback_high_flow_marks_undersized():
+    """High-flow fallback must return the largest candidates labelled UNDERSIZED."""
+    matches = search_matching_valves(
+        required_air_capacity_m3_h=10_000_000.0,
+        P1_kPa_a=P1_DEFAULT, P2_kPa_a=P2_DEFAULT, show_all_above_90=True
+    )
+    assert matches, "Fallback must not return an empty list"
+    assert all('YETERSİZ' in m['status'] for m in matches)
+    assert all(m['coverage_pct'] < 100.0 for m in matches)
+
+
+def test_report_generator_escapes_user_text():
+    from report_generator import generate_html_report
+    payload = '<script>alert("xss")</script>'
+    html = generate_html_report(
+        {
+            'project_name': payload, 'project_revision': '<b>rev</b>',
+            'project_prepared_by': payload, 'project_checked_by': '</td></tr>',
+            'V_n': 160000, 'Q_fill': 10000, 'P_atm_min': 906.03, 'P_atm_max': 1014.602,
+            'P_set': 240, 'Overpressure_pct': 10, 'N_working': 3, 'N_spare': 1,
+        },
+        {}, {}, [], [], language='tr'
+    )
+    assert '<script>' not in html
+    assert '&lt;script&gt;' in html
+    assert '<b>rev</b>' not in html
+
+
 def test_fire_case_api520_orifice():
     """ Test API 520 orifice area calculation at fire case conditions. """
     res = calculate_api520_subcritical_orifice_area(
@@ -387,7 +506,7 @@ def test_version_checker():
     """ Verify version checker metadata and update checker functions. """
     from version_checker import check_for_updates, get_version_info, parse_version_tuple
     info = get_version_info()
-    assert info['current_version'] == '1.4.1'
+    assert info['current_version'] == '2.0.0'
     assert 'build_date' in info
     assert len(info['changelog']) > 0
 
@@ -571,14 +690,16 @@ def test_report_generator_uses_real_values_and_dynamic_recommendation():
         'governing_matrix': matrix, 'fire_Z': 0.99, 'fire_k': 1.35, 'T_fire_K': 173.15,
         'isenthalpic_res': {'T_flash_K': 112.4, 'flash_pct': 2.0, 'h_feed_J_mol': -6800.0, 'converged': True},
     }
-    html = generate_html_report(inputs, thermo, sizing, matrix, [], language='tr', app_version='1.4.1')
+    import html as html_module
+    html = generate_html_report(inputs, thermo, sizing, matrix, [], language='tr', app_version='2.0.0')
+    unescaped = html_module.unescape(html)
     assert f"{Z:.4f}" in html, "Report must show the computed Z factor"
     assert f"{M:.2f}" in html, "Report must show the computed vapor molar mass"
-    assert '18" x 20" (DN450 x DN500)' not in html, "Report must not hardcode 18x20 recommendation"
-    assert '10" x 12"' in html, "Report must show the dynamically selected smallest adequate valve"
-    assert 'v1.4.1' in html
+    assert '18" x 20" (DN450 x DN500)' not in unescaped, "Report must not hardcode 18x20 recommendation"
+    assert '10" x 12"' in unescaped, "Report must show the dynamically selected smallest adequate valve"
+    assert 'v2.0.0' in html
     # English variant
-    html_en = generate_html_report(inputs, thermo, sizing, matrix, [], language='en', app_version='1.4.1')
+    html_en = generate_html_report(inputs, thermo, sizing, matrix, [], language='en', app_version='2.0.0')
     assert "PORV Relief Valve Sizing" in html_en
     assert "Option A (Recommended)" in html_en
 
@@ -594,7 +715,7 @@ def test_report_generator_empty_matrix_no_crash():
 
 
 def test_costald_density_vs_coolprop_reference():
-    """Golden validation: COSTALD mixture density must match CoolProp HEOS liquid density within 2%.
+    """Golden validation: COSTALD mixture density must match CoolProp HEOS liquid density within 0.5%.
 
     Fixed (T, P) liquid states are used because CoolProp's mixture saturation (Q=0)
     and low-temperature phase detection for this 6-component mixture are not stable
@@ -613,10 +734,43 @@ def test_costald_density_vs_coolprop_reference():
             # CoolProp mixture phase detection returned a non-liquid state; skip this point
             continue
         rho_costald = calculate_costald_density(DEFAULT_COMP, temperature_k=temp_k)['density_kg_m3']
-        assert rho_costald == pytest.approx(rho_cp, rel=0.02), \
+        assert rho_costald == pytest.approx(rho_cp, rel=0.005), \
             f"COSTALD {rho_costald:.1f} vs CoolProp {rho_cp:.1f} at {temp_k} K"
         compared += 1
     assert compared >= 1, "No valid CoolProp liquid reference state could be evaluated"
+
+
+def test_heos_fallback_is_reported(monkeypatch):
+    """A CoolProp failure must surface as fallback_used=True and a PR eos_name."""
+    import CoolProp.CoolProp as CP
+
+    from vle_thermo import calculate_eos_mixture_properties
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("CoolProp unavailable")
+
+    monkeypatch.setattr(CP, 'PropsSI', _boom)
+    res = calculate_eos_mixture_properties(DEFAULT_COMP, 118.15, 114.6, eos='HEOS')
+    assert res['fallback_used'] is True
+    assert 'fallback' in res['eos_name'].lower()
+
+
+def test_app_smoke_empty_database_no_exception(monkeypatch):
+    """Empty/missing valve database must show a designed error, not a KeyError crash."""
+    import streamlit as st
+
+    import psv_database
+    apptest = pytest.importorskip("streamlit.testing.v1")
+    monkeypatch.setattr(psv_database, "get_db_path", lambda: "/tmp/nonexistent_psv_db_ui.json")
+    st.cache_data.clear()  # DB path is not part of the cache key
+    try:
+        at = apptest.AppTest.from_file("app.py", default_timeout=180)
+        at.run()
+        assert not at.exception, f"App raised on empty DB: {[str(e.value) for e in at.exception]}"
+        assert any("Değerlendirilecek vana bulunamadı" in str(e.value) for e in at.error), \
+            "A designed empty-database error message must be shown"
+    finally:
+        st.cache_data.clear()
 
 
 def test_pr_vs_heos_consistency():

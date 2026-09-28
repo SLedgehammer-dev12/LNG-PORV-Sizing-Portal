@@ -1,11 +1,16 @@
 """
-LNG PORV Emniyet Vanası Boyutlandırma ve Termodinamik Analiz Yazılımı (Streamlit Dashboard)
+LNG PORV Emniyet Vanası Ön Boyutlandırma ve Termodinamik Analiz Yazılımı (Streamlit Dashboard)
 Çoklu EOS Destekli (Peng-Robinson, SRK, GERG-2008), Dinamik T/P Bağlı k_mix(T,P) Hesabı,
-Rachford-Rice VLE Flaş BOG Motoru, Dinamik Gaz Kompozisyonu Düzenleyicisi ve API 520 / NFPA 59A Standart Uyumlu.
+Rachford-Rice VLE Flaş BOG Motoru, Dinamik Gaz Kompozisyonu Düzenleyicisi.
+
+Kapsam: API 520 Part I / API 521 / NFPA 59A denklem tabanlı PORV ön boyutlandırma.
+Kapsam dışı: API 520 Part II tesisat analizi, API 625 / API 620 App. Q tank tasarımı,
+tank basınç-vakum koruması ve sertifikalı vana kapasitesi teyidi.
 """
 
 import json
 import logging
+import math
 
 import numpy as np
 import pandas as pd
@@ -15,6 +20,8 @@ import streamlit as st
 from lng_thermo import calculate_costald_density
 from psv_database import search_matching_valves
 from psv_sizing import (
+    SCOPE_STATEMENT,
+    STANDARD_EDITIONS,
     calculate_api520_subcritical_orifice_area,
     calculate_bor_tank_bog,
     calculate_fire_scenario_load,
@@ -42,6 +49,7 @@ from version_checker import CURRENT_VERSION, check_for_updates, get_version_info
 from vle_thermo import (
     EOS_COMPONENT_DATA,
     calculate_bubble_point_temperature,
+    calculate_eos_mixture_properties,
     calculate_isenthalpic_flash,
     calculate_two_phase_vle_flash,
 )
@@ -54,7 +62,7 @@ logging.getLogger("streamlit.elements.lib.policies").setLevel(logging.ERROR)
 
 # Page Config
 st.set_page_config(
-    page_title="LNG PORV Emniyet Vanası Boyutlandırma Portalı",
+    page_title="LNG PORV Emniyet Vanası Ön Boyutlandırma Portalı",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -110,8 +118,9 @@ st.markdown("""
 # Header Section
 st.markdown(f"""
 <div class="main-header">
-    <div class="main-title">⚓ LNG PORV Emniyet Vanası Boyutlandırma Portalı <span style="font-size: 15px; color: #38bdf8; font-weight: 500;">v{CURRENT_VERSION}</span></div>
-    <div class="sub-title">Çoklu EOS (PR / SRK / GERG-2008), İzentalpik PH-Flaş (h₁=h₂), Dinamik k(T,P), COSTALD Termodinamik ve API 520 Analiz Portalı</div>
+    <div class="main-title">⚓ LNG PORV Emniyet Vanası Ön Boyutlandırma Portalı <span style="font-size: 15px; color: #38bdf8; font-weight: 500;">v{CURRENT_VERSION}</span></div>
+    <div class="sub-title">Çoklu EOS (PR / SRK / GERG-2008), İzentalpik PH-Flaş (h₁=h₂), Dinamik k(T,P), COSTALD Termodinamik ve API 520 Part I / API 521 Ön Boyutlandırma</div>
+    <div class="sub-title" style="color:#fbbf24;">ℹ️ Kapsam: PORV ön boyutlandırma. API 520 Part II tesisat analizi, API 625 / API 620 App. Q tank tasarımı ve sertifikalı kapasite teyidi kapsam dışıdır.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -129,7 +138,7 @@ INPUT_DEFAULTS = {
     'in_T_fire': -100.0, 'in_T_fire_unit': '°C',
     'in_fire_overpressure_pct': 21.0,
     'in_fire_q_constant': '70.9 (34.500 Btu/h·ft² - drenaj/söndürme yok)',
-    'in_fire_kd_one': True,
+    'in_flash_basis': "Molar (mol/mol) - fiziksel V/F",
     'in_T_tank': -160.0, 'in_T_tank_unit': '°C',
     'in_T_relief': -155.0, 'in_T_relief_unit': '°C',
     'in_auto_sat_temp': True,
@@ -146,6 +155,7 @@ INPUT_DEFAULTS = {
     'in_bor_pct_per_day': 0.10,
     'in_w_bog_manual': 1570.0, 'in_w_bog_unit': 'kg/h',
     'in_eos_choice': "Peng-Robinson (PR 1976)",
+    'in_valve_type_filter': "Yalnızca Pilot Kumandalı",
     'in_filter_mode': "Tüm Uygun Vanaları Göster (%90 - %200 Kapasite)",
     'in_show_all_valves': True,
     'in_report_language': "Türkçe (TR)",
@@ -247,6 +257,16 @@ with input_tab1:
     with col_v2:
         N_spare = st.number_input("Yedek Vana (+1)", value=1, min_value=0, max_value=5, key='in_N_spare')
 
+    valve_type_choice = st.radio(
+        "Vana Tipi Filtresi (Aday Havuzu):",
+        ["Tümü (Pilot + Yaylı)", "Yalnızca Pilot Kumandalı", "Yalnızca Yaylı"],
+        index=1, key='in_valve_type_filter',
+        help="Pilot kumandalı ve yaylı vanalar farklı kapasite/Kd ve karşı basınç davranışına sahiptir. "
+             "PORV uygulaması için 'Yalnızca Pilot Kumandalı' seçilmesi önerilir; tip karışımı seçim sonuçlarını etkiler."
+    )
+    valve_type_code = ('pilot' if valve_type_choice.startswith("Yalnızca Pilot")
+                       else 'spring' if valve_type_choice.startswith("Yalnızca Yaylı") else 'all')
+
     st.subheader("3. Yangın Senaryosu (Fire Case) Şartları")
     wetted_area_m2 = st.number_input("Islatılmış Tank Yüzey Alanı (A_wetted, m²)", value=1200.0, step=100.0, min_value=1.0, key='in_wetted_area_m2')
     col_f1, col_f2 = st.columns(2)
@@ -267,20 +287,19 @@ with input_tab1:
                                                 help="API 520/NFPA 59A yangın senaryosunda izin verilen maksimum aşırı basınç %21'dir.")
     with col_fqc:
         fire_q_constant_choice = st.selectbox(
-            "Yangın Isı Akısı Sabiti (API 521)",
+            "Yangın Isı Girişi Korelasyon Katsayısı C (API 521, SI seti)",
             [
                 "70.9 (34.500 Btu/h·ft² - drenaj/söndürme yok)",
                 "43.2 (21.000 Btu/h·ft² - drenaj + söndürme mevcut)"
             ],
             index=0, key='in_fire_q_constant'
         )
-    fire_q_constant_kW_m2 = 70.9 if fire_q_constant_choice.startswith('70.9') else 43.2
-    fire_kd_one = st.checkbox(
-        "Yangın Senaryosunda Kd = 1.0 Kullan (Pilot Vana)", value=True, key='in_fire_kd_one',
-        help="API 520 Part I yangın hükümleri pilot kumandalı vanalarda Kd=1.0 kullanımına izin verir. "
-             "Muhafazakâr tasarım için işareti kaldırın (Kd = 0.85)."
+    fire_coefficient_c_si = 70.9 if fire_q_constant_choice.startswith('70.9') else 43.2
+    st.caption(
+        "ℹ️ C, ısı akısı değil; `Q_fire = C × F × A^0.82` korelasyon katsayısıdır (birim kW/m^1,64). "
+        "Yangın vana kapasitesi her modelin **katalog Kd değeri** ile hesaplanır; gerekli alan referans olarak Kd=0.85 ile gösterilir. "
+        "Kd=1.0 yalnızca ilgili model için üretici tarafından sertifikalandırılmışsa geçerlidir."
     )
-    fire_K_d = 1.0 if fire_kd_one else 0.85
 
 # Session State for Dynamic Gas Composition Editor
 DEFAULT_ACTIVE_COMPS = ['CH4', 'C2H6', 'C3H8', 'iC4H10', 'nC4H10', 'N2']
@@ -580,16 +599,26 @@ with input_tab3:
         w_flash_manual_kg_h = convert_mass_flow_to_kg_h(w_flash_input, w_flash_unit)
         manual_flash_pct = 2.0
         is_isenthalpic_mode = False
+        flash_basis = 'mass'
     elif flash_mode == "Sabit Flaş Oranı (%)":
         flash_manual_mode = False
         w_flash_manual_kg_h = 94200.0
         manual_flash_pct = st.number_input("Manuel Sabit Flaş Oranı (%)", value=2.0, step=0.1, min_value=0.0, max_value=100.0, key='in_manual_flash_pct')
+        flash_basis_choice = st.radio(
+            "Flaş Oranı Bazı:",
+            ["Molar (mol/mol) - fiziksel V/F", "Kütlesel (kg/kg) - doğrudan kütle oranı"],
+            index=0, key='in_flash_basis', horizontal=True,
+            help="PH-Flaş/VLE sonuçları mol bazlıdır. Molar seçilirse W_flash, M_vapor/M_feed kütle dönüşümüyle hesaplanır. "
+                 "Kütlesel seçimi yalnızca girdi gerçekten kütle% ise kullanılmalıdır."
+        )
+        flash_basis = 'molar' if flash_basis_choice.startswith('Molar') else 'mass'
         is_isenthalpic_mode = False
     else:  # İzentalpik Flaş (PH-Flash, EOS)
         flash_manual_mode = False
         w_flash_manual_kg_h = 94200.0
         manual_flash_pct = None
         is_isenthalpic_mode = True
+        flash_basis = 'molar'
 
     st.subheader("7. Tank Isı Girişi BOG Giriş Modu")
     bog_mode = st.radio(
@@ -626,6 +655,20 @@ for _tname, _tval in (("Tank LNG", T_tank_K), ("Tahliye buharı", T_relief_K), (
         _validation_errors.append(f"{_tname} sıcaklığı ({_tval:.2f} K) fiziksel aralık (60-400 K) dışında.")
 if cargo_comp_dict is not None and sum(cargo_comp_dict.values()) <= 0.0:
     _validation_errors.append("Kargo LNG kompozisyonu toplamı sıfır olamaz.")
+# Finite / physical-range checks for scalar inputs (guards loaded JSON configs)
+for _nname, _nval, _nmin in (
+    ("Tank hacmi V_n", V_n, 1.0), ("Dolum debisi Q_fill", Q_fill, 1.0),
+    ("P_atm_min", P_atm_min, 100.0), ("P_atm_max", P_atm_max, 100.0),
+    ("P_set", P_set, 1.0), ("P_ship", P_ship_mbar_g, 0.0),
+    ("Sıvı yoğunluğu ρ_LNG", rho_lng, 1.0), ("Tank BOG debisi", w_bog_kg_h, 0.0),
+    ("Islatılmış alan", wetted_area_m2, 1.0), ("Gizli ısı L", latent_heat_kJ_kg, 1.0),
+):
+    if not math.isfinite(_nval):
+        _validation_errors.append(f"{_nname} sonlu (finite) bir sayı olmalıdır.")
+    elif _nval < _nmin:
+        _validation_errors.append(f"{_nname} fiziksel alt sınırın altında ({_nval:g} < {_nmin:g}).")
+if not (0.0 <= P_set_input <= 50000.0):
+    _validation_errors.append("P_set 0-50000 mbar_g aralığı dışında.")
 if _validation_errors:
     for _err in _validation_errors:
         st.error(f"❌ **Girdi Doğrulama Hatası:** {_err}")
@@ -652,9 +695,22 @@ with st.sidebar.expander("💾 Konfigürasyon Kaydet/Yükle"):
         if loaded_file:
             try:
                 loaded = json.loads(loaded_file.read().decode())
+                if not isinstance(loaded, dict):
+                    raise ValueError("Konfigürasyon kök elemanı bir JSON nesnesi olmalıdır.")
+                _cfg_ver = loaded.get('config_version')
+                if _cfg_ver is not None and not isinstance(_cfg_ver, int):
+                    raise ValueError("config_version tamsayı olmalıdır.")
+                if isinstance(_cfg_ver, int) and _cfg_ver > 2:
+                    st.warning(f"⚠️ Konfigürasyon sürümü ({_cfg_ver}) bu uygulamadan yeni; bilinmeyen alanlar yok sayılacak.")
                 for _k, _default in INPUT_DEFAULTS.items():
                     if _k in loaded:
-                        st.session_state[_k] = loaded[_k]
+                        _val = loaded[_k]
+                        if _default is not None and not isinstance(_val, type(_default)):
+                            if not (isinstance(_default, float) and isinstance(_val, (int, float)) and not isinstance(_val, bool)):
+                                raise ValueError(f"'{_k}' alanı tipi uyumsuz ({type(_val).__name__}).")
+                        if isinstance(_val, float) and not math.isfinite(_val):
+                            raise ValueError(f"'{_k}' alanı sonlu (finite) bir sayı değil.")
+                        st.session_state[_k] = _val
                 # Backward compatibility: old "EOS VLE Flaş Oranı" mode maps to isenthalpic PH flash
                 if st.session_state.get('in_flash_mode') == "EOS VLE Flaş Oranı (%V/F)":
                     st.session_state['in_flash_mode'] = "İzentalpik Flaş (PH-Flash, EOS)"
@@ -673,6 +729,79 @@ with st.sidebar.expander("💾 Konfigürasyon Kaydet/Yükle"):
 
 # --- CORE THERMODYNAMIC & RELIEF CALCULATIONS ---
 
+def _mixture_molar_mass(composition_mol: dict) -> float:
+    """Molar mass (g/mol) of a normalized or raw composition dict."""
+    total = sum(composition_mol.values())
+    if total <= 0.0:
+        return 0.0
+    return sum(v * EOS_COMPONENT_DATA[c]['M'] for c, v in composition_mol.items() if c in EOS_COMPONENT_DATA) / total
+
+
+def _blend_relieving_vapor(y_tank, t_tank_k, w_tank_kg_h, y_flash, t_flash_k, w_flash_kg_h):
+    """
+    Molar-flow blend of the displacement/BOG vapor (tank) and flash vapor streams.
+
+    Returns (T_mix_K, z_mix, n_tank_mol_h, n_flash_mol_h). The mixed composition is
+    used to evaluate Z, k and M at the relieving state instead of arithmetically
+    averaging non-linear properties.
+    """
+    n_tank = max(0.0, w_tank_kg_h) / max(1e-9, _mixture_molar_mass(y_tank))
+    n_flash = max(0.0, w_flash_kg_h) / max(1e-9, _mixture_molar_mass(y_flash))
+    n_total = n_tank + n_flash
+    if n_total <= 0.0:
+        return t_tank_k, dict(y_tank), 0.0, 0.0
+    z_mix = {}
+    for c in set(y_tank) | set(y_flash):
+        value = (n_tank * y_tank.get(c, 0.0) + n_flash * y_flash.get(c, 0.0)) / n_total
+        if value > 0.0:
+            z_mix[c] = value
+    t_mix = (n_tank * t_tank_k + n_flash * t_flash_k) / n_total
+    return t_mix, z_mix, n_tank, n_flash
+
+
+def _solve_max_fill_m3_h(valve, *, n_working, p1_kpa, p2_kpa, t_mix_k, z_sizing, m_sizing, k_sizing,
+                         rho_feed, rho_v_disp, w_bog_kg_h, flash_mass_pct, q_hi_hint):
+    """
+    Bisection solve for the maximum LNG fill rate for which the valve's air capacity
+    (at operational relieving conditions) exactly covers the operational relief load.
+
+    Uses the operational mass balance (including the fixed heat-ingress BOG), so it
+    remains valid when the governing scenario is fire. Gas properties (Z, k, M, t_mix)
+    are held at the evaluated operating state while the Q-proportional terms
+    (displacement and flash flows) scale with the fill rate. Returns None if the valve
+    cannot cover the load at any upper bound.
+    """
+    capacity_air_m3_h = valve['air_capacity_m3_h']
+
+    def required_air_m3_h(q_fill):
+        ld = calculate_relieving_loads(
+            q_fill_m3_h=q_fill, rho_lng_kg_m3=rho_feed, rho_v_kg_m3=rho_v_disp,
+            flash_pct=flash_mass_pct, w_bog_kg_h=w_bog_kg_h, flash_basis='mass'
+        )
+        return calculate_nfpa59a_air_equivalent(
+            ld['w_total_kg_s'], temperature_k=t_mix_k, Z=z_sizing, M_g_mol=m_sizing,
+            k=k_sizing, K_d=0.85, P1_kPa_a=p1_kpa, P2_kPa_a=p2_kpa
+        ) / n_working
+
+    lo = 1.0
+    hi = max(10.0, float(q_hi_hint))
+    for _ in range(60):
+        if required_air_m3_h(hi) >= capacity_air_m3_h:
+            break
+        hi *= 2.0
+    else:
+        return None
+    if required_air_m3_h(lo) > capacity_air_m3_h:
+        return 0.0
+    for _ in range(80):
+        mid = 0.5 * (lo + hi)
+        if required_air_m3_h(mid) < capacity_air_m3_h:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
 def _compute_all_results(
     p_set_mbar, overpressure_pct, p_atm_min_mbar, p_atm_max_mbar,
     q_fill_m3h, rho_lng_val, comp_dict_frozen, t_relief_K, t_cargo_K,
@@ -680,11 +809,25 @@ def _compute_all_results(
     w_flash_manual_kg_h_val, flash_pct_val, w_bog_kg_h_val,
     bog_auto_mode_val, bor_pct_per_day_val,
     wetted_area_m2_val, insulation_factor_F_val, latent_heat_kJ_kg_val,
-    fire_overpressure_pct=21.0, fire_q_constant_val=70.9, fire_K_d_val=1.0,
+    fire_overpressure_pct=21.0, fire_q_constant_val=70.9, fire_K_d_val=0.85,
     is_isenthalpic_mode_val=False, p_ship_mbar_g_val=5000.0,
-    cargo_comp_frozen=None
+    cargo_comp_frozen=None, flash_basis_val='molar', valve_type_filter_val='all'
 ):
-    """Cached computation pipeline for all thermodynamic and sizing results."""
+    """Cached computation pipeline for all thermodynamic and sizing results.
+
+    State policy (v2.0):
+    - Displacement/BOG vapor uses the tank composition and the P1 relieving density.
+    - The PH flash supplies its own T_flash and vapor composition; the molar flash
+      fraction is converted to a mass flow with M_vapor/M_feed.
+    - Tank and flash vapor streams are blended on a molar basis; sizing properties
+      (Z, k, M) are evaluated from that mixture at (T_mix, P1) with the selected EOS.
+    - Required orifice areas use a common reference Kd = 0.85 for operational and
+      fire scenarios (unbiased governing comparison). Valve capacities always use
+      each valve's catalog Kd. ``fire_K_d_val`` is accepted for backward
+      compatibility only and no longer overrides catalog coefficients.
+    """
+    if str(flash_basis_val).lower() not in ('molar', 'mass'):
+        raise ValueError(f"Geçersiz flaş bazı: {flash_basis_val}")
     comp_dict = dict(comp_dict_frozen)
     flash_comp = dict(cargo_comp_frozen) if cargo_comp_frozen else comp_dict
 
@@ -692,20 +835,19 @@ def _compute_all_results(
     P1_kPa_a = P1_mbar_a / 10.0
     P2_kPa_a = p_atm_min_mbar / 10.0
     P_tank_kPa_a = (p_set_mbar + p_atm_min_mbar) / 10.0
-
     P1_fire_kPa_a = (p_set_mbar + (p_set_mbar * (fire_overpressure_pct / 100.0)) + p_atm_min_mbar) / 10.0
+    P_ship_kPa_a = (p_ship_mbar_g_val + p_atm_min_mbar) / 10.0
 
-    # VLE Flash at TANK OPERATING conditions for Z, k, rho, M
+    # 1) Tank vapor state (equilibrium at tank/set pressure) - composition source
     vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_relief_K, pressure_kPa_a=P_tank_kPa_a, eos=eos_code_val)
+    y_tank = vle_res['y_vapor']
     Z_factor = vle_res['Z_gas']
     k_factor = vle_res['k_mix']
     rho_v = vle_res['rho_v_kg_m3']
     M_vapor = vle_res['M_vapor_g_mol']
 
-    # Isenthalpic (PH) flash for the filling flash ratio (NFPA 59A / API 625 practice).
-    # The VLE flash above supplies only Z, k, rho_v and M_vapor.
+    # 2) Isenthalpic (PH) flash of the cargo feed: own T_flash and vapor composition
     isenthalpic_res = None
-    P_ship_kPa_a = (p_ship_mbar_g_val + p_atm_min_mbar) / 10.0
     if is_isenthalpic_mode_val or flash_pct_val is None:
         isenthalpic_res = calculate_isenthalpic_flash(
             flash_comp,
@@ -715,39 +857,49 @@ def _compute_all_results(
             eos=eos_code_val
         )
         effective_flash_pct = isenthalpic_res['flash_pct']
+        y_flash = isenthalpic_res['y_vapor']
+        t_flash_K = isenthalpic_res['T_flash_K']
     else:
         effective_flash_pct = flash_pct_val
+        y_flash = y_tank
+        t_flash_K = t_relief_K
 
+    # 3) Feed (liquid) properties from the flash composition at cargo conditions
+    feed_costald = calculate_costald_density(flash_comp, temperature_k=t_cargo_K)
+    M_feed = feed_costald['molar_mass_g_mol']
+    rho_feed = feed_costald['density_kg_m3']
+
+    # 4) Vapor molar masses needed for the molar -> mass flash conversion
+    M_vapor_flash = _mixture_molar_mass(y_flash)
+
+    # 5) Displaced tank vapor density at the relieving pressure P1
+    tank_vapor_at_p1 = calculate_eos_mixture_properties(y_tank, t_relief_K, P1_kPa_a, eos=eos_code_val)
+    rho_v_disp = tank_vapor_at_p1['rho_v_kg_m3']
+
+    # 6) Relieving loads (molar-consistent flash mass flow)
     loads = calculate_relieving_loads(
-        q_fill_m3_h=q_fill_m3h, rho_lng_kg_m3=rho_lng_val, rho_v_kg_m3=rho_v,
+        q_fill_m3_h=q_fill_m3h, rho_lng_kg_m3=rho_feed, rho_v_kg_m3=rho_v_disp,
         flash_pct=effective_flash_pct, w_bog_kg_h=w_bog_kg_h_val,
         flash_manual_mode=flash_manual_mode_val,
-        w_flash_manual_kg_h=w_flash_manual_kg_h_val
+        w_flash_manual_kg_h=w_flash_manual_kg_h_val,
+        flash_basis=flash_basis_val,
+        m_vapor_g_mol=M_vapor_flash if is_isenthalpic_mode_val or flash_pct_val is None else M_vapor,
+        m_feed_g_mol=M_feed
     )
 
-    # Relieving gas properties: when the cargo composition differs from the tank,
-    # the displacement/BOG stream carries tank vapor while the flash stream carries
-    # cargo vapor. Blend them by molar flow for the sizing gas properties.
-    vle_cargo_res = vle_res
-    cargo_vapor_blend_used = False
-    Z_sizing, k_sizing, M_sizing = Z_factor, k_factor, M_vapor
-    if cargo_comp_frozen and (loads['w_flash_kg_h'] > 0.0 or flash_manual_mode_val):
-        try:
-            vle_cargo_res = calculate_two_phase_vle_flash(flash_comp, temperature_k=t_relief_K, pressure_kPa_a=P_tank_kPa_a, eos=eos_code_val)
-            n_tank_stream = (loads['w_disp_kg_h'] + loads['w_bog_kg_h']) / max(1e-9, vle_res['M_vapor_g_mol'])
-            n_flash_stream = loads['w_flash_kg_h'] / max(1e-9, vle_cargo_res['M_vapor_g_mol'])
-            n_total = n_tank_stream + n_flash_stream
-            if n_total > 0 and n_flash_stream > 0:
-                Z_sizing = (n_tank_stream * vle_res['Z_gas'] + n_flash_stream * vle_cargo_res['Z_gas']) / n_total
-                k_sizing = (n_tank_stream * vle_res['k_mix'] + n_flash_stream * vle_cargo_res['k_mix']) / n_total
-                M_sizing = (n_tank_stream * vle_res['M_vapor_g_mol'] + n_flash_stream * vle_cargo_res['M_vapor_g_mol']) / n_total
-                cargo_vapor_blend_used = True
-        except Exception as err:
-            logger.warning(f"Kargo buhar özellikleri hesaplanamadı, tank buharı kullanılıyor: {err}")
-            vle_cargo_res = vle_res
+    # 7) Molar blend of the two vapor streams -> sizing properties at (T_mix, P1)
+    t_mix_K, z_mix, n_tank_stream, n_flash_stream = _blend_relieving_vapor(
+        y_tank, t_relief_K, loads['w_disp_kg_h'] + loads['w_bog_kg_h'],
+        y_flash, t_flash_K, loads['w_flash_kg_h']
+    )
+    sizing_props = calculate_eos_mixture_properties(z_mix, t_mix_K, P1_kPa_a, eos=eos_code_val)
+    Z_sizing = sizing_props['Z_gas']
+    k_sizing = sizing_props['k_mix']
+    M_sizing = sizing_props['M_mix']
+    cargo_vapor_blend_used = bool(cargo_comp_frozen and n_flash_stream > 0.0)
 
     q_a_total = calculate_nfpa59a_air_equivalent(
-        loads['w_total_kg_s'], temperature_k=t_relief_K, Z=Z_sizing, M_g_mol=M_sizing,
+        loads['w_total_kg_s'], temperature_k=t_mix_K, Z=Z_sizing, M_g_mol=M_sizing,
         k=k_sizing, K_d=0.85, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a
     )
     q_a_per_valve = q_a_total / n_working
@@ -755,17 +907,19 @@ def _compute_all_results(
     subcrit = calculate_api520_subcritical_orifice_area(
         w_valve_kg_h=loads['w_total_kg_h'] / n_working,
         P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a,
-        temperature_k=t_relief_K, M_g_mol=M_sizing, Z=Z_sizing, k=k_sizing, K_d=0.85
+        temperature_k=t_mix_K, M_g_mol=M_sizing, Z=Z_sizing, k=k_sizing, K_d=0.85
     )
 
     matrix = evaluate_valve_matrix(
-        q_a_per_valve_m3_h=q_a_per_valve, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a, K_d=None
+        q_a_per_valve_m3_h=q_a_per_valve, P1_kPa_a=P1_kPa_a, P2_kPa_a=P2_kPa_a, K_d=None,
+        valve_type=valve_type_filter_val
     )
 
-    # Fire Scenario (separate fire overpressure per API 520/NFPA 59A, Kd = 1.0)
+    # Fire Scenario: separate fire overpressure; catalog Kd for every valve in the
+    # matrix, reference Kd = 0.85 for the required area (same basis as operational).
     fire_res = calculate_fire_scenario_load(
         wetted_area_m2=wetted_area_m2_val, insulation_factor_F=insulation_factor_F_val,
-        latent_heat_kJ_kg=latent_heat_kJ_kg_val, q_constant_kW_per_m2=fire_q_constant_val
+        latent_heat_kJ_kg=latent_heat_kJ_kg_val, fire_coefficient_c_si=fire_q_constant_val
     )
 
     fire_vle_res = calculate_two_phase_vle_flash(comp_dict, temperature_k=t_fire_K, pressure_kPa_a=P1_fire_kPa_a, eos=eos_code_val)
@@ -775,21 +929,22 @@ def _compute_all_results(
 
     fire_q_a_total = calculate_nfpa59a_air_equivalent(
         fire_res['w_fire_kg_s'], temperature_k=t_fire_K, Z=fire_Z, M_g_mol=fire_M_vapor,
-        k=fire_k, K_d=fire_K_d_val, P1_kPa_a=P1_fire_kPa_a, P2_kPa_a=P2_kPa_a
+        k=fire_k, K_d=0.85, P1_kPa_a=P1_fire_kPa_a, P2_kPa_a=P2_kPa_a
     )
     fire_q_a_per_valve = fire_q_a_total / n_working
 
     fire_subcrit = calculate_api520_subcritical_orifice_area(
         w_valve_kg_h=fire_res['w_fire_kg_h'] / n_working,
         P1_kPa_a=P1_fire_kPa_a, P2_kPa_a=P2_kPa_a,
-        temperature_k=t_fire_K, M_g_mol=fire_M_vapor, Z=fire_Z, k=fire_k, K_d=fire_K_d_val
+        temperature_k=t_fire_K, M_g_mol=fire_M_vapor, Z=fire_Z, k=fire_k, K_d=0.85
     )
 
     fire_matrix = evaluate_valve_matrix(
-        q_a_per_valve_m3_h=fire_q_a_per_valve, P1_kPa_a=P1_fire_kPa_a, P2_kPa_a=P2_kPa_a, K_d=fire_K_d_val
+        q_a_per_valve_m3_h=fire_q_a_per_valve, P1_kPa_a=P1_fire_kPa_a, P2_kPa_a=P2_kPa_a, K_d=None,
+        valve_type=valve_type_filter_val
     )
 
-    # Governing Scenario by orifice area
+    # Governing Scenario by orifice area (both required areas use the same reference Kd)
     if fire_subcrit['A_o_mm2'] > subcrit['A_o_mm2']:
         governing_scenario = "🔥 Yangin Senaryosu (Fire Case)"
         governing_w_total_kg_h = fire_res['w_fire_kg_h']
@@ -810,17 +965,25 @@ def _compute_all_results(
         required_air_capacity_m3_h=governing_q_a_total / n_working,
         P1_kPa_a=P1_fire_kPa_a if governing_is_fire else P1_kPa_a,
         P2_kPa_a=P2_kPa_a,
-        show_all_above_90=True
+        show_all_above_90=True,
+        valve_type=valve_type_filter_val
     )
 
     return {
         'P1_kPa_a': P1_kPa_a, 'P2_kPa_a': P2_kPa_a, 'P1_mbar_a': P1_mbar_a,
         'P1_fire_kPa_a': P1_fire_kPa_a, 'fire_overpressure_pct': fire_overpressure_pct,
-        'fire_q_constant_kW_m2': fire_q_constant_val, 'fire_K_d': fire_K_d_val,
+        'fire_coefficient_c_si': fire_res['fire_coefficient_c_si'],
+        'fire_K_d_reference': 0.85,
         'vle_res': vle_res, 'Z_factor': Z_factor, 'k_factor': k_factor, 'rho_v': rho_v,
         'M_vapor': M_vapor, 'effective_flash_pct': effective_flash_pct, 'loads': loads,
         'Z_sizing': Z_sizing, 'k_sizing': k_sizing, 'M_sizing': M_sizing,
-        'cargo_vapor_blend_used': cargo_vapor_blend_used, 'vle_cargo_res': vle_cargo_res,
+        't_mix_K': t_mix_K, 'z_mix': z_mix,
+        'sizing_eos_name': sizing_props.get('eos_name', eos_code_val),
+        'sizing_fallback_used': bool(sizing_props.get('fallback_used', False)),
+        'rho_v_disp': rho_v_disp, 'rho_v_sizing': sizing_props['rho_v_kg_m3'],
+        'M_feed': M_feed, 'rho_feed': rho_feed, 'flash_basis': loads['flash_basis'],
+        'M_vapor_flash': M_vapor_flash,
+        'cargo_vapor_blend_used': cargo_vapor_blend_used,
         'q_a_total': q_a_total, 'q_a_per_valve': q_a_per_valve,
         'subcrit': subcrit, 'matrix': matrix,
         'fire_res': fire_res, 'fire_Z': fire_Z, 'fire_k': fire_k, 'fire_M_vapor': fire_M_vapor,
@@ -830,7 +993,8 @@ def _compute_all_results(
         'governing_q_a_total': governing_q_a_total, 'governing_A_o_mm2': governing_A_o_mm2,
         'governing_matrix': governing_matrix, 'governing_is_fire': governing_is_fire,
         'matched_valves': matched_valves, 'eos_code': eos_code_val,
-        'isenthalpic_res': isenthalpic_res
+        'isenthalpic_res': isenthalpic_res,
+        'valve_type_filter': valve_type_filter_val
     }
 
 
@@ -854,11 +1018,12 @@ try:
         bor_pct_per_day_val=bor_pct_per_day,
         wetted_area_m2_val=wetted_area_m2, insulation_factor_F_val=insulation_factor_F,
         latent_heat_kJ_kg_val=latent_heat_kJ_kg,
-        fire_overpressure_pct=fire_overpressure_pct, fire_q_constant_val=fire_q_constant_kW_m2,
-        fire_K_d_val=fire_K_d,
+        fire_overpressure_pct=fire_overpressure_pct, fire_q_constant_val=fire_coefficient_c_si,
         is_isenthalpic_mode_val=is_isenthalpic_mode,
         p_ship_mbar_g_val=P_ship_mbar_g,
-        cargo_comp_frozen=tuple(sorted(cargo_comp_dict.items())) if cargo_comp_dict else None
+        cargo_comp_frozen=tuple(sorted(cargo_comp_dict.items())) if cargo_comp_dict else None,
+        flash_basis_val=flash_basis,
+        valve_type_filter_val=valve_type_code
     )
 
     # Unpack results
@@ -897,6 +1062,24 @@ try:
     governing_is_fire = results['governing_is_fire']
     matched_valves = results['matched_valves']
     isenthalpic_res = results.get('isenthalpic_res', None)
+    t_mix_K = results.get('t_mix_K', T_relief_K)
+    rho_v_disp = results.get('rho_v_disp', rho_v)
+    rho_v_sizing = results.get('rho_v_sizing', rho_v)
+    M_feed = results.get('M_feed', M_mix_calculated)
+    rho_feed = results.get('rho_feed', rho_lng)
+    flash_basis = results.get('flash_basis', 'molar')
+    z_mix = results.get('z_mix', vle_res['y_vapor'])
+    M_vapor_flash = _mixture_molar_mass(isenthalpic_res['y_vapor']) if isenthalpic_res else M_vapor
+    enthalpy_model = (isenthalpic_res or {}).get('enthalpy_model', results.get('eos_code', 'PR'))
+    sizing_eos_name = results.get('sizing_eos_name', vle_res['eos_used'])
+
+    # Normalized composition actually used by the calculations
+    _mol_total = sum(comp_dict.values()) or 100.0
+    normalized_composition = {c: v / _mol_total * 100.0 for c, v in comp_dict.items()}
+    cargo_normalized_composition = None
+    if cargo_comp_dict:
+        _cargo_total = sum(cargo_comp_dict.values()) or 100.0
+        cargo_normalized_composition = {c: v / _cargo_total * 100.0 for c, v in cargo_comp_dict.items()}
 
     # Report Data Dictionary Compilation (single source of truth for the HTML report)
     report_inputs = {
@@ -908,15 +1091,24 @@ try:
         'V_n': V_n, 'Q_fill': Q_fill, 'P_atm_min': P_atm_min, 'P_atm_max': P_atm_max,
         'P_set': P_set, 'Overpressure_pct': Overpressure_pct,
         'fire_overpressure_pct': fire_overpressure_pct,
-        'fire_q_constant_kW_m2': fire_q_constant_kW_m2, 'fire_K_d': fire_K_d,
+        'fire_coefficient_c_si': fire_coefficient_c_si, 'fire_K_d_reference': 0.85,
         'N_working': N_working, 'N_spare': N_spare,
         'T_tank_K': T_tank_K, 'T_relief_K': T_relief_K, 'T_cargo_K': T_cargo_K,
         'T_fire_K': T_fire_K, 'P_ship_kPa_a': (P_ship_mbar_g + P_atm_min) / 10.0,
         'flash_pct': effective_flash_pct, 'flash_manual_mode': flash_manual_mode,
+        'flash_basis': flash_basis,
         'bog_auto_mode': bog_auto_mode, 'bor_pct_per_day': bor_pct_per_day,
         'wetted_area_m2': wetted_area_m2, 'insulation_factor_F': insulation_factor_F,
         'latent_heat_kJ_kg': latent_heat_kJ_kg, 'K_d': 0.85, 'P1_kPa_a': P1_kPa_a,
         'P1_fire_kPa_a': P1_fire_kPa_a,
+        'normalized_composition': normalized_composition,
+        'raw_composition': dict(comp_dict),
+        'cargo_normalized_composition': cargo_normalized_composition,
+        'standard_editions': STANDARD_EDITIONS,
+        'scope_statement': SCOPE_STATEMENT,
+        'valve_type_filter': valve_type_code,
+        'valve_type_filter_label': valve_type_choice,
+        'max_fill_m3_h': None,  # filled after the recommendation block below
     }
 
     report_thermo = {
@@ -924,6 +1116,8 @@ try:
         'vapor_density': rho_v, 'Z_factor': Z_factor,
         'k_factor': k_factor, 'M_vapor': M_vapor,
         'Z_sizing': Z_sizing, 'k_sizing': k_sizing, 'M_sizing': M_sizing,
+        't_mix_K': t_mix_K, 'rho_v_disp': rho_v_disp, 'rho_v_sizing': rho_v_sizing,
+        'M_feed': M_feed, 'rho_feed': rho_feed,
         'cargo_vapor_blend_used': cargo_vapor_blend_used,
         'fire_Z': fire_Z, 'fire_k': fire_k, 'fire_M_vapor': fire_M_vapor
     }
@@ -941,7 +1135,9 @@ try:
         'governing_w_total_kg_h': governing_w_total_kg_h,
         'governing_A_o_mm2': governing_A_o_mm2, 'governing_matrix': governing_matrix,
         'fire_Z': fire_Z, 'fire_k': fire_k, 'T_fire_K': T_fire_K,
-        'isenthalpic_res': isenthalpic_res
+        'isenthalpic_res': isenthalpic_res,
+        'operational_matrix': matrix,
+        'flash_basis': loads.get('flash_basis', flash_basis),
     }
 
 except Exception as e:
@@ -1053,7 +1249,8 @@ with m_col6:
 
 # Main Section 1: Dynamic Orifice Matrix
 st.header("1. Standart Orifis Alanı Karşılaştırma Matrisi")
-st.caption(f"Min. Sahadaki Atmosferik Basınç ({P_atm_min:.2f} mbar_a) ve Relieving Pressure ({P1_mbar_a:.2f} mbar_a) altında değerlendirme:")
+_valve_type_label = {'pilot': "Yalnızca Pilot Kumandalı", 'spring': "Yalnızca Yaylı", 'all': "Tümü (Pilot + Yaylı)"}[valve_type_code]
+st.caption(f"Min. Sahadaki Atmosferik Basınç ({P_atm_min:.2f} mbar_a), Relieving Pressure ({P1_mbar_a:.2f} mbar_a) ve Vana Tipi Filtresi: **{_valve_type_label}**")
 
 filter_mode = st.radio(
     "Vana Görünüm Filtresi:",
@@ -1065,6 +1262,20 @@ filter_mode = st.radio(
 
 if not vle_res.get('converged', True):
     st.warning(f"⚠️ **VLE Flaş Yakınsama Uyarısı**: Faz dengesi {vle_res.get('iterations', '?')} iterasyonda tam yakınsamadı; Z/k/ρ_v sonuçları yaklaşık değerdir.")
+if vle_res.get('phase_split_model') == 'wilson_initial' and eos_code in ('HEOS', 'IDEAL'):
+    st.info(
+        f"ℹ️ **Faz Ayrımı Modeli:** {vle_res.get('eos_used', eos_code)} seçili; ancak iki fazlı faz ayrımı "
+        f"şu an Wilson K-değerleriyle başlatılmakta, özellikler (Z, k, ρ_v, M) seçilen EOS ile hesaplanmaktadır. "
+        f"Rapor bu durumu 'phase_split_model' alanında kaydeder."
+    )
+
+if not matrix:
+    _filter_label = {'pilot': "Yalnızca Pilot Kumandalı", 'spring': "Yalnızca Yaylı", 'all': "Tümü"}[valve_type_code]
+    st.error(
+        f"❌ **Değerlendirilecek vana bulunamadı.** `psv_database.json` yüklenemedi/boş olabilir ya da "
+        f"seçilen vana tipi filtresinde ({_filter_label}) uygun kayıt yoktur."
+    )
+    st.stop()
 
 matrix_df = pd.DataFrame(matrix)
 # Sort by orifice area ascending: smallest valve first
@@ -1099,21 +1310,24 @@ else:
     else:
         st.warning("⚠️ Kapasite ≥ %100 şartını sağlayan vana bulunamadı.")
 
-matrix_df_display = filtered_matrix_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
-matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
+matrix_df_display = filtered_matrix_df[['size_name', 'valve_category', 'orifice_area_mm2', 'discharge_coeff_kd', 'air_capacity_m3_h', 'coverage_pct', 'utilization_pct', 'status']].copy()
+matrix_df_display['valve_category'] = matrix_df_display['valve_category'].map({'pilot': 'Pilot', 'spring': 'Yaylı'})
+matrix_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Tip', 'Efektif Orifis Alanı (mm²)', 'Kd (katalog/sertifikalı)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Karşılama Oranı (%)', 'Kapasite Kullanımı (%)', 'Teknik Değerlendirme']
 
 st.dataframe(
     matrix_df_display.style.format({
         'Efektif Orifis Alanı (mm²)': '{:,.0f}',
+        'Kd (katalog/sertifikalı)': '{:.3f}',
         'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
-        'Kapasite Oranı (%)': '%{:.1f}'
+        'Kapasite Karşılama Oranı (%)': '%{:.1f}',
+        'Kapasite Kullanımı (%)': '%{:.1f}'
     })
 )
 
 # Governing Scenario Valve Matrix (conditional fire display)
 if governing_is_fire:
     st.subheader("🔥 Yangın Senaryosu — Hüküm Süren Vana Matrisi")
-    st.caption(f"Yangın Tahliye Sıcaklığı: {T_fire_input:.1f} {T_fire_unit} | Q_fire = {fire_res['q_fire_kW']:,.1f} kW | W_fire = {fire_res['w_fire_kg_h']:,.1f} kg/h | K_d = 1.0")
+    st.caption(f"Yangın Tahliye Sıcaklığı: {T_fire_input:.1f} {T_fire_unit} | Q_fire = {fire_res['q_fire_kW']:,.1f} kW | W_fire = {fire_res['w_fire_kg_h']:,.1f} kg/h | Gerekli alan referansı Kd = 0.85 | Vana kapasiteleri katalog Kd ile")
 
     gov_df = pd.DataFrame(governing_matrix)
     gov_df = gov_df.sort_values(by='orifice_area_mm2', ascending=True)
@@ -1129,14 +1343,17 @@ if governing_is_fire:
         elif gov_df['coverage_pct'].max() < 90.0:
             filtered_gov_df = gov_df.tail(3)
 
-    gov_df_display = filtered_gov_df[['size_name', 'orifice_area_mm2', 'air_capacity_m3_h', 'coverage_pct', 'status']].copy()
-    gov_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Efektif Orifis Alanı (mm²)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Oranı (%)', 'Teknik Değerlendirme']
+    gov_df_display = filtered_gov_df[['size_name', 'valve_category', 'orifice_area_mm2', 'discharge_coeff_kd', 'air_capacity_m3_h', 'coverage_pct', 'utilization_pct', 'status']].copy()
+    gov_df_display['valve_category'] = gov_df_display['valve_category'].map({'pilot': 'Pilot', 'spring': 'Yaylı'})
+    gov_df_display.columns = ['Vana Anma Ölçüsü & Markası', 'Tip', 'Efektif Orifis Alanı (mm²)', 'Kd (katalog/sertifikalı)', 'Hava Tahliye Kapasitesi (m³/h)', 'Kapasite Karşılama Oranı (%)', 'Kapasite Kullanımı (%)', 'Teknik Değerlendirme']
 
     st.dataframe(
         gov_df_display.style.format({
             'Efektif Orifis Alanı (mm²)': '{:,.0f}',
+            'Kd (katalog/sertifikalı)': '{:.3f}',
             'Hava Tahliye Kapasitesi (m³/h)': '{:,.0f}',
-            'Kapasite Oranı (%)': '%{:.1f}'
+            'Kapasite Karşılama Oranı (%)': '%{:.1f}',
+            'Kapasite Kullanımı (%)': '%{:.1f}'
         })
     )
 else:
@@ -1154,12 +1371,27 @@ exp1, exp2, exp3, exp4 = st.tabs([
 ])
 
 with exp1:
+    if loads.get('flash_basis') == 'molar':
+        _wf_formula = (
+            f"W_flash = Q_fill × ρ_feed × β_molar × (M_vapor/M_feed) = "
+            f"{Q_fill:,.0f} × {rho_feed:.1f} × {effective_flash_pct / 100.0:.4f} × "
+            f"({M_vapor_flash:.2f}/{M_feed:.2f}) = **{loads['w_flash_kg_h']:,.1f} kg/h**"
+        )
+        _wf_note = "Molar V/F, kütle dengesinden kütle debisine dönüştürülmüştür."
+    else:
+        _wf_formula = (
+            f"W_flash = Q_fill × ρ_feed × (Kütle %) = {Q_fill:,.0f} × {rho_feed:.1f} × "
+            f"{effective_flash_pct / 100.0:.4f} = **{loads['w_flash_kg_h']:,.1f} kg/h**"
+        )
+        _wf_note = "Kullanıcı tarafından kütlesel oran olarak girilmiştir."
     st.markdown(f"""
     #### 📐 Toplam Tahliye Debisi Formülleri (W_total)
     - **Sıvı Yerdeğiştirme Debisi (W_disp)**:
-      W_disp = Q_fill × ρ_v = {Q_fill:,.0f} m³/h × {rho_v:.3f} kg/m³ = **{loads['w_disp_kg_h']:,.1f} kg/h**
-    - **Flaş BOG Debisi (W_flash)**:
-      W_flash = Q_fill × ρ_LNG × (% Flaş) = {Q_fill:,.0f} × {rho_lng:.1f} × {effective_flash_pct / 100.0:.4f} = **{loads['w_flash_kg_h']:,.1f} kg/h**
+      W_disp = Q_fill × ρ_v(P1) = {Q_fill:,.0f} m³/h × {rho_v_disp:.3f} kg/m³ = **{loads['w_disp_kg_h']:,.1f} kg/h**
+      *ρ_v tank buharı bileşimi ve P1 relieving basıncında hesaplanmıştır.*
+    - **Flaş BOG Debisi (W_flash)** ({'Molar baz' if loads.get('flash_basis') == 'molar' else 'Kütlesel baz'}):
+      {_wf_formula}
+      *{_wf_note} Besleme yoğunluğu ρ_feed = {rho_feed:.1f} kg/m³ (T_cargo koşulu, {'kargo' if cargo_comp_dict else 'tank'} kompozisyonu).*
     - **Isı Girişi Tank BOG Debisi (W_bog)**:
       {f"W_bog = V_n × ρ_LNG × (BOR / 2400) = {V_n:,.0f} × {rho_lng:.1f} × ({bor_pct_per_day:.2f} / 2400) = **{w_bog_kg_h:,.1f} kg/h**" if bog_auto_mode else f"W_bog = **{w_bog_kg_h:,.1f} kg/h** (Manuel Giriş)"}
     - **Toplam Kütlesel Operasyonel Tahliye Debisi (W_total)**:
@@ -1169,8 +1401,9 @@ with exp1:
         y_n2_val = isenthalpic_res.get('y_vapor', {}).get('N2', 0.0) * 100.0 if isinstance(isenthalpic_res.get('y_vapor'), dict) else 0.0
         z_n2_val = (cargo_comp_dict if (cargo_diff and cargo_comp_dict) else comp_dict).get('N2', 0.0)
         n2_row = f"\n        | Azot Zenginleşmesi (Buhar / Sıvı) | **{y_n2_val / max(0.001, z_n2_val):.1f}x** (%{z_n2_val:.2f} → %{y_n2_val:.2f}) | mol/mol |" if z_n2_val > 0.01 else ""
+        _bound_note = "Evet (tek faz sınırı)" if isenthalpic_res.get('search_bound_hit') else "Hayır"
         st.info(f"""
-        #### 🔬 İzentalpik Flaş (PH-Flash) Detayı ({isenthalpic_res['eos_used']})
+        #### 🔬 İzentalpik Flaş (PH-Flash) Detayı
 
         | Parametre | Değer | Birim |
         | :--- | :---: | :---: |
@@ -1178,6 +1411,9 @@ with exp1:
         | Genleşme Flaş Sıcaklığı (T_flash) | **{isenthalpic_res['T_flash_K']:.2f}** ({isenthalpic_res['T_flash_K'] - 273.15:.2f} °C) | K |
         | Besleme Entalpisi (h_feed) | **{isenthalpic_res['h_feed_J_mol']:.1f}** | J/mol |
         | Buhar Oranı (VF / Flaş %) | **%{isenthalpic_res['flash_pct']:.3f}** | mol/mol |
+        | İstenen EOS | {isenthalpic_res['eos_used']} | - |
+        | Entalpi Modeli (gerçek) | {enthalpy_model} | - |
+        | Arama Sınırına Dayandı | {_bound_note} | - |
         | Çözüm Yakınsadı | **{'Evet' if isenthalpic_res['converged'] else 'Hayır'}** | - |{n2_row}
         """)
 
@@ -1192,23 +1428,34 @@ with exp2:
     | Parametre Tanımı | Sembol | Sayısal Değer | Birim |
     | :--- | :---: | :---: | :---: |
     | Toplam Kütlesel Tahliye Debisi | W_total | **{loads['w_total_kg_s']:.3f}** | kg/s |
-    | Tahliye Sıcaklığı | T | **{T_relief_K:.2f}** | K |
-    | Gaz Sıkıştırılabilirlik Faktörü ({vle_res['eos_used']}) | Z | **{Z_sizing:.4f}** | - |
-    | Buhar Faz Mol Kütlesi | M | **{M_sizing:.2f}** | g/mol |
+    | Boyutlandırma Karışım Sıcaklığı | T_mix | **{t_mix_K:.2f}** | K |
+    | Gaz Sıkıştırılabilirlik Faktörü ({sizing_eos_name}) | Z | **{Z_sizing:.4f}** | - |
+    | Buhar Faz Mol Kütlesi (karışım) | M | **{M_sizing:.2f}** | g/mol |
     | **NFPA 59A Toplam Eşdeğer Hava Debisi** | **Q_a** | **{q_a_total:,.1f}** | **m³/h Hava** |
     | **Vana Başına Düşen Hava Debisi ({N_working} Çalışan)** | **Q_a,per_valve** | **{q_a_per_valve:,.1f}** | **m³/h Hava/Vana** |
     """)
     if cargo_vapor_blend_used:
         st.info(
-            f"🧪 **Karma Buhar Özellikleri:** Kargo kompozisyonu tanktan farklı olduğundan, boyutlandırma gazı özellikleri "
-            f"taşma+BOG buharı (tank, M={M_vapor:.2f}) ile flaş buharı (kargo, M={results.get('vle_cargo_res', {}).get('M_vapor_g_mol', float('nan')):.2f}) "
-            f"mol akışına göre harmanlanmıştır: **M={M_sizing:.2f} g/mol, Z={Z_sizing:.4f}, k={k_sizing:.4f}**."
+            f"🧪 **Karma Buhar Özellikleri:** Taşma+BOG buharı (tank, M={M_vapor:.2f}) ile flaş buharı "
+            f"(kargo, M={M_vapor_flash:.2f}) mol akışına göre karıştırılmış; Z, k ve M bu karışım kompozisyonu ile "
+            f"(T={t_mix_K:.2f} K, P1={P1_kPa_a:.2f} kPa_a) yeniden hesaplanmıştır: "
+            f"**M={M_sizing:.2f} g/mol, Z={Z_sizing:.4f}, k={k_sizing:.4f}**."
         )
 
 with exp3:
+    _r = subcrit['pressure_ratio']
+    _rc = subcrit['r_c']
+    if subcrit['is_subcritical']:
+        _regime = f"Subcritical Akış (r = {_r:.4f} > r_c = {_rc:.4f})"
+        _ao_formula = "A_o = (17.9 × W_valve) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T × Z / M)"
+        _flow_row = f"| Subcritical Akış Katsayısı (F2) | F2 | **{subcrit['F2']:.4f}** | API 520 Subcritical terimi (**kullanıldı**) |"
+    else:
+        _regime = f"Kritik Akış (r = {_r:.4f} ≤ r_c = {_rc:.4f})"
+        _ao_formula = "A_o = (W_valve / (C_crit × Kd × Kb × Kc × P1)) × √(T × Z / M)"
+        _flow_row = f"| Kritik Akış Katsayısı | C_crit | **{subcrit['C_crit']:.5f}** | API 520 Critical terimi (**kullanıldı**; F2 = 1.0) |"
     st.markdown(f"""
-    #### 🔥 API 520 Part I Subcritical Orifis Alanı Formülü (A_o)
-    `A_o = (17.9 × W_valve) / (F2 × Kd × Kb × Kc × √(P1 × ΔP)) × √(T × Z / M)`
+    #### 🔥 API 520 Part I Gerekli Orifis Alanı Formülü (A_o)
+    `{_ao_formula}`
     `F2 = √( [k/(k-1)] × r^(2/k) × [(1 - r^((k-1)/k)) / (1 - r)] ),  r = P2 / P1`
 
     | Parametre Tanımı | Sembol | Sayısal Değer | Birim / Not |
@@ -1217,36 +1464,42 @@ with exp3:
     | Relieving Absolüt Basınç (P1) | P1 | **{P1_kPa_a:.2f}** | kPa_a ({P1_mbar_a:.1f} mbar_a) |
     | Çıkış Sırt Basıncı (P2) | P2 | **{P2_kPa_a:.2f}** | kPa_a ({P_atm_min:.1f} mbar_a) |
     | Basınç Düşüşü (ΔP) | ΔP | **{P1_kPa_a - P2_kPa_a:.2f}** | kPa |
-    | Basınç Oranı (r = P2/P1) | r | **{P2_kPa_a/P1_kPa_a:.4f}** | Subcritical Rejim (r > r_c = {subcrit['r_c']:.4f}) |
-    | Subcritical Akış Katsayısı (F2) | F2 | **{subcrit['F2']:.4f}** | API 520 Subcritical Terimi |
-    | Vana Tahliye Katsayısı | Kd | **0.85** | API 520 Standart Orifis |
+    | Basınç Oranı (r = P2/P1) | r | **{_r:.4f}** | {_regime} |
+    {_flow_row}
+    | Vana Tahliye Katsayısı | Kd | **0.85** | Gerekli alan için referans değer; vana kapasitesi modelin katalog Kd'si ile |
+    | Sırt Basıncı Düzeltmesi | Kb | **1.0** | Doğrudan atmosfere tahliye / built-up backpressure ihmalı (varsayım) |
+    | Rupture Disc Faktörü | Kc | **1.0** | Kombinasyon yok varsayımı |
     | **API 520 Gerekli Efektif Orifis Alanı** | **A_o** | **{subcrit['A_o_mm2']:,.1f}** | **mm² ({subcrit['A_o_in2']:.1f} in²)** |
     """)
 
 with exp4:
     is_insulated = "Yalıtımlı Çift Cidarlı Tank" if insulation_factor_F <= 0.3 else "Yalıtımsız / Hasarlı Tank"
     fire_is_sub = "Subcritical" if fire_subcrit['is_subcritical'] else "Critical"
+    _fire_flow = (f"F2={fire_subcrit['F2']:.4f}" if fire_subcrit['is_subcritical']
+                  else f"C_crit={fire_subcrit['C_crit']:.5f}, F2=1.0")
     st.markdown(f"""
     #### 🚒 Yangın Senaryosu (Fire Case) Tahliye Debisi & Hüküm Süren (Governing) Senaryo Analizi
-    `Q_fire = C_q × F × (A_wetted ^ 0.82) (kW),  C_q = {fire_q_constant_kW_m2:.1f} kW/m²` (API 521 §5.15)
+    `Q_fire = C × F × (A_wetted ^ 0.82) (kW)`
+    `C = {fire_res['fire_coefficient_c_si']:.1f}` (API 521 SI korelasyon katsayısı, birim kW/m^1.64 — ısı akısı **değildir**)
     `W_fire = (Q_fire × 3600) / L (kg/h)`
 
     | Parametre / Senaryo | Değer | Birim / Açıklama |
     | :--- | :---: | :--- |
     | Islatılmış Tank Yüzey Alanı (A_wetted) | **{wetted_area_m2:,.0f}** | m² |
-    | Yalıtım / Çevre Faktörü (F) | **{insulation_factor_F:.2f}** | {is_insulated} |
-    | LNG Buharlaşma Gizli Isısı (L) | **{latent_heat_kJ_kg:,.0f}** | kJ/kg |
+    | Yalıtım / Çevre Faktörü (F) | **{insulation_factor_F:.2f}** | {is_insulated} (kaynağı proje/API 521 kılavuzu ile doğrulanmalı) |
+    | LNG Buharlaşma Gizli Isısı (L) | **{latent_heat_kJ_kg:,.0f}** | kJ/kg (relieving koşulunda doğrulanmalı) |
     | Yangın Tahliye Sıcaklığı (T_fire) | **{T_fire_input:.1f} {T_fire_unit}** | Yangın senaryosu gaz sıcaklığı |
     | Yangın Relieving Basıncı (P1_fire) | **{P1_fire_kPa_a:.2f}** | kPa_a (%{fire_overpressure_pct:.0f} overpressure) |
     | Yangın Gaz Z Faktörü ({eos_code}) | **{fire_Z:.4f}** | - |
     | Yangın Dinamik k = Cp/Cv | **{fire_k:.3f}** | - |
-    | Yangın Vana Kd (API 520 Fire) | **1.00** | Yangın senaryosu tam açılma |
+    | Akış Rejimi | **{fire_is_sub}** | {_fire_flow} |
+    | Yangın Vana Kd Politikası | **Katalog Kd** | Her vana kendi sertifikalı/katalog Kd değeriyle; gerekli alan referans Kd=0.85 |
     | **Yangın Durumu Isı Girişi (Q_fire)** | **{fire_res['q_fire_kW']:,.1f}** | **kW** |
     | **Yangın Senaryosu Tahliye Debisi (W_fire)** | **{fire_res['w_fire_kg_h']:,.1f}** | **kg/h** ({fire_q_a_total:,.1f} m³/h Hava) |
-    | **Yangın Senaryosu Gerekli A_o (API 520, Kd=1.0)** | **{fire_subcrit['A_o_mm2']:,.1f}** | **mm²** ({fire_is_sub}, F2={fire_subcrit['F2']:.4f}) |
+    | **Yangın Senaryosu Gerekli A_o (referans Kd=0.85)** | **{fire_subcrit['A_o_mm2']:,.1f}** | **mm²** ({fire_is_sub}) |
     | **Operasyonel Tahliye Debisi (W_operasyonel)** | **{loads['w_total_kg_h']:,.1f}** | **kg/h** ({q_a_total:,.1f} m³/h Hava) |
-    | **Operasyonel Gerekli A_o (API 520, Kd=0.85)** | **{subcrit['A_o_mm2']:,.1f}** | **mm²** |
-    | **🏆 HÜKÜM SÜREN (GOVERNING) SENARYO** | **{governing_scenario}** | **A_o = {governing_A_o_mm2:,.1f} mm²** |
+    | **Operasyonel Gerekli A_o (referans Kd=0.85)** | **{subcrit['A_o_mm2']:,.1f}** | **mm²** |
+    | **🏆 HÜKÜM SÜREN (GOVERNING) SENARYO** | **{governing_scenario}** | **A_o = {governing_A_o_mm2:,.1f} mm²** (aynı Kd bazı) |
     """)
 
 # Main Section 2: Commercial Manufacturer PSV Database Matching
@@ -1311,10 +1564,10 @@ with chart_col1:
             w_valve_kg_h=loads['w_total_kg_h'] / N_working,
             P1_kPa_a=p1_kpa,
             P2_kPa_a=p2_kpa,
-            temperature_k=T_relief_K,
-            M_g_mol=M_vapor,
-            Z=Z_factor,
-            k=k_factor
+            temperature_k=t_mix_K,
+            M_g_mol=M_sizing,
+            Z=Z_sizing,
+            k=k_sizing
         )
         area_list.append(res_sub['A_o_mm2'])
 
@@ -1340,15 +1593,18 @@ with chart_col2:
     _gov_sorted = sorted(governing_matrix, key=lambda m: abs(m['coverage_pct'] - 120.0))
     _chart_valves = _gov_sorted[:3]
     _chart_p1 = P1_fire_kPa_a if governing_is_fire else P1_kPa_a
-    _chart_kd = fire_K_d if governing_is_fire else 0.85
+
+    _chart_flash_mass_pct = (effective_flash_pct * (M_vapor_flash / M_feed)
+                             if loads.get('flash_basis') == 'molar' else effective_flash_pct)
 
     _chart_traces = []
     for _v in _chart_valves:
-        _cap = calculate_valve_capacity(_v['orifice_area_mm2'], _chart_p1, P2_kPa_a, K_d=_v.get('discharge_coeff_kd', 0.85) if not governing_is_fire else fire_K_d)
+        _cap = calculate_valve_capacity(_v['orifice_area_mm2'], _chart_p1, P2_kPa_a, K_d=_v.get('discharge_coeff_kd', 0.85))
         _covs = []
         for q in q_range:
-            ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_lng, rho_v_kg_m3=rho_v, flash_pct=effective_flash_pct, w_bog_kg_h=w_bog_kg_h)
-            qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=T_relief_K, Z=Z_factor, M_g_mol=M_vapor, k=k_factor, K_d=_chart_kd, P1_kPa_a=_chart_p1, P2_kPa_a=P2_kPa_a) / N_working
+            ld = calculate_relieving_loads(q_fill_m3_h=q, rho_lng_kg_m3=rho_feed, rho_v_kg_m3=rho_v_disp,
+                                           flash_pct=_chart_flash_mass_pct, w_bog_kg_h=w_bog_kg_h, flash_basis='mass')
+            qa = calculate_nfpa59a_air_equivalent(ld['w_total_kg_s'], temperature_k=t_mix_K, Z=Z_sizing, M_g_mol=M_sizing, k=k_sizing, K_d=0.85, P1_kPa_a=_chart_p1, P2_kPa_a=P2_kPa_a) / N_working
             _covs.append((_cap / max(1.0, qa)) * 100.0)
         _label = f"{_v['size_name'].split(' (')[0]} ({_v['orifice_area_mm2']:.0f}mm²)"
         _chart_traces.append(go.Scatter(x=q_range, y=_covs, mode='lines', name=_label, line=dict(width=2)))
@@ -1399,8 +1655,41 @@ _best_area = _best_valve['orifice_area_mm2']
 _second_name = _second_valve['size_name'] if _second_valve else '-'
 _second_cov = _second_valve['coverage_pct'] if _second_valve else 0.0
 
-# Maximum allowable fill rate with the selected valve (Q_max = Q_fill * coverage / 100)
-_max_fill_q = Q_fill * (_best_cov / 100.0)
+# Maximum allowable fill rate: solved from the OPERATIONAL mass balance with the
+# smallest adequate operational valve. Never derived from a fire-governed matrix.
+_op_sorted = sorted(matrix, key=lambda m: m['orifice_area_mm2'])
+_op_window = [m for m in _op_sorted if 100.0 <= m['coverage_pct'] <= 200.0]
+if _op_window:
+    _op_best = _op_window[0]
+elif [m for m in _op_sorted if m['coverage_pct'] >= 100.0]:
+    _op_best = [m for m in _op_sorted if m['coverage_pct'] >= 100.0][0]
+else:
+    _op_best = max(matrix, key=lambda m: m['coverage_pct']) if matrix else None
+
+_flash_mass_pct_for_solver = (effective_flash_pct * (M_vapor_flash / M_feed)
+                              if loads.get('flash_basis') == 'molar' else effective_flash_pct)
+_max_fill_q = None
+if _op_best is not None:
+    _max_fill_q = _solve_max_fill_m3_h(
+        _op_best, n_working=N_working, p1_kpa=P1_kPa_a, p2_kpa=P2_kPa_a,
+        t_mix_k=t_mix_K, z_sizing=Z_sizing, m_sizing=M_sizing, k_sizing=k_sizing,
+        rho_feed=rho_feed, rho_v_disp=rho_v_disp, w_bog_kg_h=w_bog_kg_h,
+        flash_mass_pct=_flash_mass_pct_for_solver, q_hi_hint=max(Q_fill, 1.0) * 8.0
+    )
+_best_util = (100.0 / _best_cov * 100.0) if _best_cov > 0.0 else float('inf')
+_second_util = (100.0 / _second_cov * 100.0) if _second_cov > 0.0 else float('inf')
+
+if _best_valve.get('valve_category') == 'spring' and valve_type_code == 'all':
+    st.warning(
+        "⚠️ **Tip Uyarısı:** Seçilen en küçük uygun vana **yaylı** tiptedir. Bu araç PORV (pilot kumandalı) "
+        "odaklıdır; soldaki **Vana Tipi Filtresi → 'Yalnızca Pilot Kumandalı'** seçeneği ile aday havuzunu "
+        "proje tip şartına göre daraltın. Tip ve geri basınç davranışı seçimi doğrudan etkiler."
+    )
+elif valve_type_code == 'pilot' and not _adequate:
+    st.info(
+        "ℹ️ Pilot-only filtrede %100-%200 penceresinde vana bulunamadı; adaylar mevcut en küçük pilot "
+        "modellerden referans olarak gösterilmektedir. Vana adedini (N) veya katalog kapsamını gözden geçirin."
+    )
 
 col_rec1, col_rec2, col_rec3 = st.columns(3)
 
@@ -1410,8 +1699,9 @@ with col_rec1:
         ### 🌟 Seçenek A (Tavsiye Edilen)
         **En Küçük Uygun Vana**:
         - **{_best_name}** (A_orifice = {_best_area:,.0f} mm²)
-        - Kapasite Kullanımı: **%{_best_cov:.1f}**
-        - {N_working}+{N_spare} konfigürasyonu için optimum seçim.
+        - Kapasite Karşılama Oranı: **%{_best_cov:.1f}** (kapsama)
+        - Gerçek Kapasite Kullanımı (talep/kapasite): **%{_best_util:.1f}**
+        - {N_working}+{N_spare} konfigürasyonu için seçim; katalog verisi `indicative`, sertifikalı kapasite teyidi gerekir.
         """)
     elif _adequate:
         st.warning(f"""
@@ -1419,7 +1709,7 @@ with col_rec1:
         **%100-%200 Penceresinde Vana Yok**:
         - Mevcut katalogda %100-%200 aralığında vana bulunmamaktadır.
         - En yakın uygun vana: **{_best_name}** (A_orifice = {_best_area:,.0f} mm²)
-        - Kapasite Kullanımı: **%{_best_cov:.1f}** → %200 üzeri (aşırı boyutlandırma / chattering riski).
+        - Kapasite Karşılama Oranı: **%{_best_cov:.1f}** (kullanım **%{_best_util:.1f}**) → %200 üzeri (aşırı boyutlandırma riski).
         - Öneri: çalışan vana adedini (N) artırın veya ara çap modeli tedarikçiden talep edin.
         """)
     else:
@@ -1436,7 +1726,7 @@ with col_rec2:
         ### ⚠️ Seçenek B (Yedek Kapasite)
         **Daha Büyük Vana Alternatifi**:
         - **{_second_name}** (A_orifice = {_second_valve['orifice_area_mm2']:,.0f} mm²)
-        - Kapasite Kullanımı: **%{_second_cov:.1f}**
+        - Kapasite Karşılama Oranı: **%{_second_cov:.1f}** (kullanım **%{_second_util:.1f}**)
         - Fazla emniyet marjı sağlar.
         """)
     elif _adequate:
@@ -1449,12 +1739,17 @@ with col_rec2:
         """)
 
 with col_rec3:
-    if _adequate:
+    if _adequate and _max_fill_q is not None and _op_best is not None:
+        _op_best_name = _op_best['size_name']
+        _fire_note = (
+            "\n        - ℹ️ *Hüküm süren senaryo yangın olduğundan bu limit **operasyonel kütle dengesinden** ayrıca çözülmüştür; "
+            "yangın yükü dolum debisinden bağımsızdır.*" if governing_is_fire else ""
+        )
         st.info(f"""
         ### 🛑 Seçenek C (Dolum Debisi Limiti)
         **Mevcut Vanayı Koruma**:
-        - {_best_name} vanalar {N_working}+{N_spare} düzeninde tutulursa,
-        - Maksimum dolum debisi **{_max_fill_q:,.0f} m³/h** seviyesine kadar kullanılabilir (%{_best_cov:.1f} kapasite).
+        - Operasyonel en küçük uygun vana: **{_op_best_name}**
+        - Bu vana düzeni korunursa maksimum dolum debisi **{_max_fill_q:,.0f} m³/h** (P1'de hava kapasitesi kapsaması).{_fire_note}
         """)
     else:
         st.info("""
@@ -1480,6 +1775,10 @@ report_inputs['project_name'] = st.session_state.get('in_project_name', '')
 report_inputs['project_revision'] = st.session_state.get('in_project_revision', '')
 report_inputs['project_prepared_by'] = st.session_state.get('in_project_prepared_by', '')
 report_inputs['project_checked_by'] = st.session_state.get('in_project_checked_by', '')
+report_inputs['max_fill_m3_h'] = _max_fill_q
+report_inputs['best_compliance_pct'] = _best_cov
+report_inputs['best_utilization_pct'] = _best_util
+report_sizing['operational_best_valve'] = _op_best.get('size_name') if _op_best else None
 _report_language = 'en' if st.session_state.get('in_report_language', 'Türkçe (TR)').startswith('English') else 'tr'
 
 html_report_content = generate_html_report(

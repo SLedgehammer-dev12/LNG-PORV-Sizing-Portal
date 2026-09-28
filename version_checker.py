@@ -11,13 +11,21 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "1.4.1"
-BUILD_DATE = "2026-09-25"
-RELEASE_CHANNEL = "Stable / Production (BOTAŞ & NFPA 59A Certified)"
+CURRENT_VERSION = "2.0.0"
+BUILD_DATE = "2026-09-28"
+RELEASE_CHANNEL = "Stable / Production (PORV ön boyutlandırma aracı)"
 GITHUB_REPO = "SLedgehammer-dev12/LNG-PORV-Sizing-Portal"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 CHANGELOG_HIGHLIGHTS = [
+    "v2.0.0: Molar flaş oranı kütle dengesiyle kütle debisine dönüştürülüyor (W_flash = Q·ρ_feed·β·M_vapor/M_feed); kargo farklıysa kargo yoğunluğu/mol kütlesi kullanılıyor.",
+    "v2.0.0: Boyutlandırma gazı özellikleri (Z, k, M) tank+flaş buharının mol-akışı karışımından ve P1 relieving basıncından hesaplanıyor.",
+    "v2.0.0: Global Kd override kaldırıldı; her vana kendi katalog Kd değeriyle değerlendiriliyor, gerekli alanlar referans Kd=0.85 ile.",
+    "v2.0.0: Maksimum dolum debisi operasyonel kütle dengesinden çözülüyor (yangın hüküm sürse bile); kapsama ve kapasite kullanımı ayrı gösteriliyor.",
+    "v2.0.0: Kritik/subkritik akış gösterimi gerçek kullanılan denklem dalına bağlandı; Kd etiketleri dinamik.",
+    "v2.0.0: Yangın katsayısı C (kW/m^1.64) olarak yeniden adlandırıldı; birim yorumu düzeltildi.",
+    "v2.0.0: EOS fallback/faz ayrımı/arama sınırı durumları raporda açıkça raporlanıyor.",
+    "v2.0.0: HTML raporu escape ediliyor; boş DB, NaN/Inf, bilinmeyen birim ve konfigürasyon girdileri güvenli ele alınıyor.",
     "v1.4.1: Flaş/sıcaklık termodinamik tutarlılığı — T_tank ve T_relief artık tank doygunluk sıcaklığına otomatik eşitleniyor; subcooled kargoda VF=0 uyarısı ve flaş eşiği gösteriliyor.",
     "v1.4.1: Sıcaklık tutarsızlığı uyarısı; tutarlı T_relief ile ρ_v, M_vapor ve gerekli orifis alanı fiziksel olarak doğru (≈%4 daha konservatif).",
     "v1.4.1: M_liquid ve M_vapor etiketleri netleştirildi; rapora M_vapor satırı eklendi.",
